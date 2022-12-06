@@ -6,7 +6,7 @@ class Axis(Enum):
     WIDTH = 1
     HEIGHT = 2
 
-PRECISION = 0
+PRECISION = 0 # =10^x
 
 def valid_axis(axises:Tuple[Axis, Axis, Axis]):
     assert len(axises) == 3

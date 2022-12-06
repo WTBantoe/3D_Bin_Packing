@@ -134,4 +134,6 @@ class Container:
                     idx_height = axis_index_list[lwh_map[2]]
                     if self.put(new_bin,(idx_length, idx_width, idx_height)):
                         return (idx_length, idx_width, idx_height)
+                    else:
+                        pass
         return None
