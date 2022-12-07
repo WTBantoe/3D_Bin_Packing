@@ -32,7 +32,7 @@ class Bin:
 
     
     def axis_sort(self, axises:Tuple[Axis, Axis, Axis], ascending:bool=True) -> bool:
-        if not valid_axis(axises):
+        if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")
         sorted_axises = sorted([self.l, self.w, self.h], reverse=(not ascending))
         lwh_map = [None, None, None]

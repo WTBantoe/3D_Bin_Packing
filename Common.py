@@ -7,10 +7,3 @@ class Axis(Enum):
     HEIGHT = 2
 
 PRECISION = 0 # =10^x
-
-def valid_axis(axises:Tuple[Axis, Axis, Axis]):
-    assert len(axises) == 3
-    valid = False
-    if Axis.LENGTH in axises and Axis.WIDTH in axises and Axis.HEIGHT in axises:
-        valid = True
-    return valid

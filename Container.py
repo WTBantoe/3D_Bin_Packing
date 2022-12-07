@@ -62,78 +62,77 @@ class Container:
         matrix_str = self.print_2D_matrix(matrix,compact)
         print(matrix_str)
 
-    def within(self, new_bin:Bin, position:Tuple[int,int,int]):
-        is_within = \
+    def within(self, new_bin:Bin, position:Tuple[int,int,int]) -> Tuple[bool, bool, bool]:
+        length_within = \
         (0 <= position[0] and position[0] <= self.space.shape[0]) and \
-        (1 <= position[0] + new_bin.length and position[0] + new_bin.length <= self.space.shape[0]) and \
+        (1 <= position[0] + new_bin.length and position[0] + new_bin.length <= self.space.shape[0])
+        width_within = \
         (0 <= position[1] and position[1] <= self.space.shape[1]) and \
-        (1 <= position[1] + new_bin.width and position[1] + new_bin.width <= self.space.shape[1]) and \
+        (1 <= position[1] + new_bin.width and position[1] + new_bin.width <= self.space.shape[1])
+        height_within = \
         (0 <= position[2] and position[2] <= self.space.shape[2]) and \
         (1 <= position[2] + new_bin.height and position[2] + new_bin.height <= self.space.shape[2])
-        return is_within
+        return length_within, width_within, height_within
 
-    def will_fall(self, new_bin:Bin, position:Tuple[int,int,int]):
+    def stable(self, new_bin:Bin, position:Tuple[int,int,int]):
         lower_level = position[2] - 1
         if lower_level == -1:
-            return False
+            return True
         else:
             lower_level_slice = self.space[:,:,lower_level]
             bin_slice = lower_level_slice[position[0]:position[0]+new_bin.length,position[1]:position[1]+new_bin.width]
             # if np.sum(bin_slice)/np.sum(np.ones_like(bin_slice)) >= 1/2:
             #     return False
             if bin_slice[0,0] == 1 and bin_slice[0,-1] == 1 and bin_slice[-1,0] == 1 and bin_slice[-1,-1] == 1:
-                return False  
-        return True  
+                return True  
+        return False  
             
         
     def put(self, new_bin:Bin, position:Tuple[int,int,int]) -> bool:
-        if not self.within(new_bin, position):
-            return False
-        if self.will_fall(new_bin, position):
-            return False
+        within = self.within(new_bin, position)
+        if not all(within):
+            return (*within, True, True)
+        if not self.stable(new_bin, position):
+            return (True, True, True, False, True)
         if np.sum(self.space[position[0]:position[0]+new_bin.length,
                              position[1]:position[1]+new_bin.width,
                              position[2]:position[2]+new_bin.height]) == 0:
             self.space[position[0]:position[0]+new_bin.length,
                        position[1]:position[1]+new_bin.width,
                        position[2]:position[2]+new_bin.height] = 1
-            return True
+            return (True, True, True, True, True)
         else:
-            return False
+            return (True, True, True, True, False)
 
-    def greedy_find(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis]) -> Tuple[int,int,int]:
-        if not valid_axis(axises):
+    def greedy_find(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], start_point:Tuple[int,int,int]=(0,0,0)) -> Tuple[int,int,int]:
+        if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")
         # axises = reversed(axises)
         search_order = []
-        order_map = []
-        for axis in axises:
-            if axis == Axis.LENGTH:
-                order_map.append(0)
-            if axis == Axis.WIDTH:
-                order_map.append(1)
-            if axis == Axis.HEIGHT:
-                order_map.append(2)
-        lwh_map = [None, None, None]
-        for idx, axis in enumerate(axises):
-            if axis == Axis.LENGTH:
-                lwh_map[0] = idx
-            if axis == Axis.WIDTH:
-                lwh_map[1] = idx
-            if axis == Axis.HEIGHT:
-                lwh_map[2] = idx
+        axis_map = utils.axis_utils.lwh_to_axis(axises)
+        lwh_map = utils.axis_utils.axis_to_lwh(axises)
         search_axises = [self.max_length, self.max_width, self.max_height]
-        search_order = [search_axises[order_map[0]],search_axises[order_map[1]],search_axises[order_map[2]]]
+        search_order = [search_axises[axis_map[0]],search_axises[axis_map[1]],search_axises[axis_map[2]]]
 
-        for axis_0 in range(search_order[0]):
-            for axis_1 in range(search_order[1]):
-                for axis_2 in range(search_order[2]):
+        # TODO 改判断逻辑
+        for axis_0 in range(start_point[0], search_order[0]):
+            for axis_1 in range(start_point[1], search_order[1]):
+                for axis_2 in range(start_point[2], search_order[2]):
                     axis_index_list = [axis_0, axis_1, axis_2]
                     idx_length = axis_index_list[lwh_map[0]]
                     idx_width = axis_index_list[lwh_map[1]]
                     idx_height = axis_index_list[lwh_map[2]]
-                    if self.put(new_bin,(idx_length, idx_width, idx_height)):
-                        return (idx_length, idx_width, idx_height)
+                    results = self.put(new_bin,(idx_length, idx_width, idx_height))
+                    neg_result = [not result for result in results]
+                    skip_axis = neg_result[axis_map[0]], neg_result[axis_map[1]], neg_result[axis_map[2]]
+                    if any(skip_axis[:3]):
+                        break
+                    elif any(neg_result):
+                        continue
                     else:
-                        pass
+                        return (idx_length, idx_width, idx_height) 
+                if any(skip_axis[:2]):
+                    break 
+            if any(skip_axis[:1]):
+                break
         return None
