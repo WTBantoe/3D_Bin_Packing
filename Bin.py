@@ -30,20 +30,18 @@ class Bin:
     def height(self):
         return utils.math_utils.to_precision(self.h, self.precision)
 
+    @property
+    def size_list(self):
+        return [self.length, self.width, self.height]
     
     def axis_sort(self, axises:Tuple[Axis, Axis, Axis], ascending:bool=True) -> bool:
         if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")
         sorted_axises = sorted([self.l, self.w, self.h], reverse=(not ascending))
-        lwh_map = [None, None, None]
-        for idx, axis in enumerate(axises):
-            if axis == Axis.LENGTH:
-                lwh_map[0] = idx
-            if axis == Axis.WIDTH:
-                lwh_map[1] = idx
-            if axis == Axis.HEIGHT:
-                lwh_map[2] = idx
-        self.l, self.w, self.h = sorted_axises[lwh_map[0]],sorted_axises[lwh_map[1]],sorted_axises[lwh_map[2]]
+        self.l, self.w, self.h = utils.axis_utils.axis_to_lwh(sorted_axises, axises)
+
+    def axis_transform(self, axises:Tuple[Axis, Axis, Axis]) -> bool:
+        self.l, self.w, self.h = utils.axis_utils.axis_to_lwh([self.l, self.w, self.h], axises)
                 
 
 

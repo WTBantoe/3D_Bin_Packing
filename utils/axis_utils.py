@@ -8,7 +8,7 @@ def valid_axis(axises:Tuple[Axis, Axis, Axis]):
         valid = True
     return valid
 
-def lwh_to_axis(axises:Tuple[Axis, Axis, Axis]) -> List[int]:
+def lwh_to_axis_map(axises:Tuple[Axis, Axis, Axis]) -> List[int]:
     axis_map = []
     for axis in axises:
         if axis == Axis.LENGTH:
@@ -19,7 +19,7 @@ def lwh_to_axis(axises:Tuple[Axis, Axis, Axis]) -> List[int]:
             axis_map.append(2)
     return axis_map
 
-def axis_to_lwh(axises:Tuple[Axis, Axis, Axis]) -> List[int]:
+def axis_to_lwh_map(axises:Tuple[Axis, Axis, Axis]) -> List[int]:
     lwh_map = [None, None, None]
     for idx, axis in enumerate(axises):
         if axis == Axis.LENGTH:
@@ -29,3 +29,21 @@ def axis_to_lwh(axises:Tuple[Axis, Axis, Axis]) -> List[int]:
         if axis == Axis.HEIGHT:
             lwh_map[2] = idx
     return lwh_map
+
+def lwh_to_axis(lwh:Tuple[int,int,int], axises:Tuple[Axis, Axis, Axis]):
+    axis_map = lwh_to_axis_map(axises)
+    axis = [lwh[axis_map[0]], lwh[axis_map[1]], lwh[axis_map[2]]]
+    return axis
+
+def axis_to_lwh(axis:Tuple[int,int,int], axises:Tuple[Axis, Axis, Axis]):
+    lwh_map = axis_to_lwh_map(axises)
+    lwh = [axis[lwh_map[0]], axis[lwh_map[1]], axis[lwh_map[2]]]
+    return lwh
+
+def full_axis_type():
+    return [(Axis.LENGTH, Axis.WIDTH, Axis.HEIGHT),
+            (Axis.LENGTH, Axis.HEIGHT, Axis.WIDTH),
+            (Axis.WIDTH, Axis.LENGTH, Axis.HEIGHT),
+            (Axis.WIDTH, Axis.HEIGHT, Axis.LENGTH),
+            (Axis.HEIGHT, Axis.LENGTH, Axis.WIDTH),
+            (Axis.HEIGHT, Axis.WIDTH, Axis.LENGTH)]
