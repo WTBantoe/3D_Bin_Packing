@@ -1,9 +1,9 @@
+from Common import *
+import utils
+
 from typing import Any, List, Tuple
 from Bin import Bin
 import numpy as np
-from Common import *
-import utils
-from tqdm import trange
 
 class Container:
     def __init__(self, ml:float, mw:float, mh:float, precision:int=PRECISION):
@@ -15,7 +15,6 @@ class Container:
         self.next_length_points = []
         self.next_width_points = []
         self.next_height_points = []
-        self.next_points = []
 
     @property
     def max_length(self):
@@ -49,7 +48,7 @@ class Container:
     def space_utilization(self) -> np.float32:
         return np.sum(self.space)/np.sum(np.ones_like(self.space))
 
-    def print_2D_matrix(self, matrix:Any, compact:bool=False):
+    def str_2D_matrix(self, matrix:Any, compact:bool=False):
         map_str = str(matrix).replace("],","],\n").replace("'","").replace(",","").replace("1","█")
         if compact:
             map_str = map_str.replace(" ","").replace("[[","[").replace("]]","]")
@@ -68,7 +67,7 @@ class Container:
             matrix = np.transpose(self.space[:,:,slice])
         matrix = matrix[::-1,:]
         matrix = matrix.tolist()
-        matrix_str = self.print_2D_matrix(matrix,compact)
+        matrix_str = self.str_2D_matrix(matrix,compact)
         print(matrix_str)
     
     def point_within(self, position:Tuple[int,int,int]):
@@ -92,7 +91,7 @@ class Container:
         (1 <= position[2] + new_bin.height and position[2] + new_bin.height <= self.space.shape[2])
         return length_within, width_within, height_within
 
-    def stable(self, new_bin:Bin, position:Tuple[int,int,int]):
+    def stable(self, new_bin:Bin, position:Tuple[int,int,int], strict:bool=True):
         lower_level = position[2] - 1
         if lower_level == -1:
             return True
@@ -101,19 +100,23 @@ class Container:
             bin_slice = lower_level_slice[position[0]:position[0]+new_bin.length,position[1]:position[1]+new_bin.width]
             # if np.sum(bin_slice)/np.sum(np.ones_like(bin_slice)) >= 1/2:
             #     return False
-            if bin_slice[0,0] == 1 and bin_slice[0,-1] == 1 and bin_slice[-1,0] == 1 and bin_slice[-1,-1] == 1:
-                return True  
+            if strict:
+                if bin_slice[0,0] == 1 and bin_slice[0,-1] == 1 and bin_slice[-1,0] == 1 and bin_slice[-1,-1] == 1:
+                    return True
+            else:
+                if np.sum(bin_slice) > 0:
+                    return True 
         return False  
                
-    def put(self, new_bin:Bin, position:Tuple[int,int,int]) -> bool:
+    def put(self, new_bin:Bin, position:Tuple[int,int,int], strict:bool = True, just_try:bool = False) -> bool:
         within = self.within(new_bin, position)
         if not all(within):
             return (*within, True, True)
-        if not self.stable(new_bin, position):
+        if not self.stable(new_bin, position, strict):
             return (True, True, True, False, True)
         if np.sum(self.space[position[0]:position[0]+new_bin.length,
                              position[1]:position[1]+new_bin.width,
-                             position[2]:position[2]+new_bin.height]) == 0:
+                             position[2]:position[2]+new_bin.height]) and not just_try == 0:
             self.space[position[0]:position[0]+new_bin.length,
                        position[1]:position[1]+new_bin.width,
                        position[2]:position[2]+new_bin.height] = 1
@@ -121,7 +124,7 @@ class Container:
         else:
             return (True, True, True, True, False)
 
-    def greedy_find_part(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], start_point:Tuple[int,int,int]=(0,0,0)) -> Tuple[int,int,int]:
+    def greedy_find_part(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], start_point:Tuple[int,int,int]=(0,0,0), strict:bool=True) -> Tuple[int,int,int]:
         if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")
         search_lwh = [self.max_length, self.max_width, self.max_height]
@@ -133,7 +136,7 @@ class Container:
                 for axis_2 in range(axis_start_point[2], search_axis[2]):
                     axis_index_list = [axis_0, axis_1, axis_2]
                     idx_length, idx_width, idx_height = utils.axis_utils.axis_to_lwh(axis_index_list, axises)
-                    results = self.put(new_bin,(idx_length, idx_width, idx_height))
+                    results = self.put(new_bin, (idx_length, idx_width, idx_height), strict)
                     neg_result = [not result for result in results]
                     skip_axis = utils.axis_utils.lwh_to_axis(neg_result[:3], axises)
                     if any(skip_axis[:3]):
@@ -149,33 +152,46 @@ class Container:
         return None
 
     # FIXME 需要优化逻辑，放置一个箱子后待放置点的选择目前存在错误
-    def greedy_find_with_heuristics(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis]) -> Tuple[int, int, int]:
+    def greedy_find_with_heuristics(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], try_rotate:bool=True, strict:bool=True) -> Tuple[int, int, int]:
         lwh_list = [self.next_length_points, self.next_width_points, self.next_height_points]
         axis_map = utils.axis_utils.lwh_to_axis_map(axises)
         axis_list = [lwh_list[axis_map[0]], lwh_list[axis_map[1]], lwh_list[axis_map[2]]]
         axis_list.reverse()
-        self.next_points = []
-        self.next_points.extend(axis_list[0])
-        self.next_points.extend(axis_list[1])
-        self.next_points.extend(axis_list[2]) 
-        if self.next_points == []:
+        axis_len_list = [len(axis_list[0]), len(axis_list[1]), len(axis_list[2])]
+        next_points = []
+        next_points.extend(axis_list[0])
+        next_points.extend(axis_list[1])
+        next_points.extend(axis_list[2]) 
+        if next_points == []:
             bin_location = self.greedy_find_part(new_bin, axises)
         else:
             suit_one = False
-            for next_position in self.next_points:
+            for idx_point,next_position in enumerate(next_points):
                 if self.space[next_position[0],next_position[1],next_position[2]] == 1:
-                    self.next_points.remove(next_position)
+                    if idx_point < axis_len_list[0]:
+                        axis_list[0].remove(next_position)
+                    elif idx_point < axis_len_list[0] + axis_len_list[1]:
+                        axis_list[1].remove(next_position)
+                    elif idx_point < axis_len_list[0] + axis_len_list[1] + axis_len_list[2]:
+                        axis_list[2].remove(next_position)
                     continue
                 suit = False
-                for axis_type in utils.axis_utils.full_axis_type():
-                    copy_bin = Bin(new_bin.l, new_bin.w, new_bin.h, self.precision)
-                    copy_bin.axis_transform(axis_type)
-                    results = self.put(copy_bin, next_position)
+                if try_rotate:
+                    for idx_axis, axis_type in enumerate(utils.axis_utils.full_axis_type()):
+                        copy_bin = Bin(new_bin.l, new_bin.w, new_bin.h, self.precision)
+                        copy_bin.axis_transform(axis_type)
+                        results = self.put(copy_bin, next_position, strict)
+                        if all(results):
+                            if idx_axis != 0:
+                                logger.info(f"Rotate bin to {axis_type}")
+                            bin_location = next_position
+                            suit = True
+                            break
+                else:
+                    results = self.put(new_bin, next_position, strict)
                     if all(results):
                         bin_location = next_position
-                        self.next_points.remove(next_position)
                         suit = True
-                        break
                 if suit:
                     suit_one = True
                     break
@@ -190,6 +206,9 @@ class Container:
         height_candidates = [(bin_location[0], bin_location[1], bin_location[2] + new_bin.height),
                              (bin_location[0] + new_bin.length, bin_location[1], bin_location[2] + new_bin.height),
                              (bin_location[0], bin_location[1] + new_bin.width, bin_location[2] + new_bin.height)]
+        length_candidates = length_candidates[:1]
+        width_candidates = width_candidates[:1]
+        height_candidates = height_candidates[:1]
         for length_candidate in length_candidates:
             if all(self.point_within(length_candidate)) and \
             self.space[length_candidate[0],length_candidate[1],length_candidate[2]] != 1:
@@ -204,4 +223,6 @@ class Container:
                 self.next_height_points.append(height_candidate)
         return bin_location
 
+    def sub_space_find(self, new_bin:Bin):
+        pass
                     

@@ -1,12 +1,11 @@
+from Common import *
 from random import random
 from typing import List,Tuple
 
 from Bin import Bin
 from Container import Container
-from Common import *
 
 import os
-import logging
 
 def generate_bins(bin_num:int, container:Container) -> List[Bin]:
     bin_list = []
@@ -16,15 +15,15 @@ def generate_bins(bin_num:int, container:Container) -> List[Bin]:
         w = container.mw * random() / 4 + 10 ** (-container.precision)
         new_bin = Bin(l, h, w, container.precision)
         bin_list.append(new_bin)
+    logger.info("{} bin(s) generated.".format(bin_num))
     return bin_list
     
 def read_task(read_path:str, bin_types:int, precision:int=PRECISION) -> Tuple[Container, List[Bin]]:
     bins_list = []
     abs_path = os.path.abspath(read_path)
-    # TODO 采用logging改写print
     if not os.path.exists(abs_path):
-        print("File does not exist!")
-    print(f'Read from :"{abs_path}"')
+        logger.critical("Task File does not exist!")
+    logger.info(f'Read from: "{abs_path}"')
     read_file = open(abs_path, "r", encoding = 'utf-8')
     lines = read_file.readlines()
     lines = [line.strip() for line in lines]
@@ -63,6 +62,6 @@ def read_task(read_path:str, bin_types:int, precision:int=PRECISION) -> Tuple[Co
             valid_idies.append(idx)
     random_choice = int(random() * len(valid_idies))
     valid_idx = valid_idies[random_choice]
-    print(f"{len(container_list)} task(s) in total, {len(valid_idies)} valid task(s), pick {valid_idx+1}nd/{random_choice+1}nd one.")
+    logger.info(f"{len(container_list)} task(s) in total, {len(valid_idies)} valid task(s), {valid_idx+1}nd/{random_choice+1}nd picked.")
     return container_list[valid_idx], bins_list[valid_idx]
             

@@ -1,5 +1,6 @@
 
 __pycache__/
 
-
 temp_test.py
+
+*.log
