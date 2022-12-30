@@ -34,6 +34,10 @@ class Bin:
     def size_list(self):
         return [self.length, self.width, self.height]
     
+    @property
+    def volume(self):
+        return self.length * self.width * self.height
+    
     def axis_sort(self, axises:Tuple[Axis, Axis, Axis], ascending:bool=True) -> bool:
         if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")

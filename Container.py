@@ -11,10 +11,13 @@ class Container:
         self.mw = mw
         self.mh = mh
         self.precision = precision
-        self.construct_space()
+        self.space = self.construct_space()
+        self.envelope_space = self.construct_space()
+        self.simple_space = self.construct_simple_space()
         self.next_length_points = []
         self.next_width_points = []
         self.next_height_points = []
+        self.candidates_points = []
 
     @property
     def max_length(self):
@@ -32,6 +35,10 @@ class Container:
     def size_list(self):
         return [self.max_length, self.max_width, self.max_height]
 
+    @property
+    def volumn(self):
+        return self.max_length * self.max_width * self.max_height
+    
     def __str__(self):
         format_ctrl = "({{0:.{0}f}},{{1:.{0}f}},{{2:.{0}f}})".format(self.precision)
         return format_ctrl.format(self.ml, self.mw, self.mh)
@@ -41,8 +48,11 @@ class Container:
         return format_ctrl.format(self.ml, self.mw, self.mh,
                                   self.max_length, self.max_width, self.max_height)
 
-    def construct_space(self) -> None:
-        self.space = np.zeros((self.max_length, self.max_width, self.max_height), dtype=np.int32)
+    def construct_space(self) -> np.ndarray:
+        return np.zeros((self.max_length, self.max_width, self.max_height), dtype=np.int32)
+
+    def construct_simple_space(self) -> np.ndarray:
+        return np.zeros((self.max_length, self.max_width), dtype=np.int32)
 
     @property
     def space_utilization(self) -> np.float32:
@@ -58,13 +68,13 @@ class Container:
     # ↑     ↑     ↑    
     # |-→ w |-→ l |-→ l
     #   l     w     h
-    def print_2D_slice(self, asix: Axis, slice:int, compact:bool=False):
+    def print_2D_slice(self, asix: Axis, slice_idx:int, compact:bool=False):
         if asix == Axis.LENGTH:
-            matrix = np.transpose(self.space[slice,:,:])
+            matrix = np.transpose(self.space[slice_idx,:,:])
         elif asix == Axis.WIDTH:
-            matrix = np.transpose(self.space[:,slice,:])
+            matrix = np.transpose(self.space[:,slice_idx,:])
         elif asix == Axis.HEIGHT:
-            matrix = np.transpose(self.space[:,:,slice])
+            matrix = np.transpose(self.space[:,:,slice_idx])
         matrix = matrix[::-1,:]
         matrix = matrix.tolist()
         matrix_str = self.str_2D_matrix(matrix,compact)
@@ -91,7 +101,7 @@ class Container:
         (1 <= position[2] + new_bin.height and position[2] + new_bin.height <= self.space.shape[2])
         return length_within, width_within, height_within
 
-    def stable(self, new_bin:Bin, position:Tuple[int,int,int], strict:bool=True):
+    def stable(self, new_bin:Bin, position:Tuple[int,int,int], strict_level:int=3):
         lower_level = position[2] - 1
         if lower_level == -1:
             return True
@@ -100,31 +110,111 @@ class Container:
             bin_slice = lower_level_slice[position[0]:position[0]+new_bin.length,position[1]:position[1]+new_bin.width]
             # if np.sum(bin_slice)/np.sum(np.ones_like(bin_slice)) >= 1/2:
             #     return False
-            if strict:
+            if strict_level == 3:
                 if bin_slice[0,0] == 1 and bin_slice[0,-1] == 1 and bin_slice[-1,0] == 1 and bin_slice[-1,-1] == 1:
                     return True
-            else:
+            elif strict_level == 2:
                 if np.sum(bin_slice) > 0:
                     return True 
+            elif strict_level == 1:
+                if np.sum(lower_level_slice) > 0:
+                    return True
+            elif strict_level == 0:
+                return True
         return False  
+
+    def volumn_check(self, new_bin:Bin):
+        remain_space = self.volumn - np.sum(self.space)
+        if remain_space < new_bin.volume:
+            return False
+        else:
+            return True
                
-    def put(self, new_bin:Bin, position:Tuple[int,int,int], strict:bool = True, just_try:bool = False) -> bool:
+    def put(self, new_bin:Bin, position:Tuple[int,int,int], strict_level:int=3, just_try:bool=False) -> bool:
         within = self.within(new_bin, position)
         if not all(within):
             return (*within, True, True)
-        if not self.stable(new_bin, position, strict):
+        if not self.stable(new_bin, position, strict_level):
             return (True, True, True, False, True)
         if np.sum(self.space[position[0]:position[0]+new_bin.length,
                              position[1]:position[1]+new_bin.width,
-                             position[2]:position[2]+new_bin.height]) and not just_try == 0:
-            self.space[position[0]:position[0]+new_bin.length,
-                       position[1]:position[1]+new_bin.width,
-                       position[2]:position[2]+new_bin.height] = 1
-            return (True, True, True, True, True)
+                             position[2]:position[2]+new_bin.height])  == 0:
+            if not just_try:
+                self.space[position[0]:position[0]+new_bin.length,
+                           position[1]:position[1]+new_bin.width,
+                           position[2]:position[2]+new_bin.height] = 1
+                self.simple_space[position[0]:position[0]+new_bin.length,
+                                   position[1]:position[1]+new_bin.width] = position[2]+new_bin.height
+                self.envelope_space[:position[0]+new_bin.length,
+                                   :position[1]+new_bin.width,
+                                   :position[2]+new_bin.height] = 1
+            return (True, True, True, True, True)            
         else:
             return (True, True, True, True, False)
 
-    def greedy_find_part(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], start_point:Tuple[int,int,int]=(0,0,0), strict:bool=True) -> Tuple[int,int,int]:
+    def find_envelope_in_slice(self,asix: Axis, slice_idx:int):
+        if asix == Axis.LENGTH:
+            matrix = self.envelope_space[slice_idx,:,:]
+        elif asix == Axis.WIDTH:
+            matrix = self.envelope_space[:,slice_idx,:]
+        elif asix == Axis.HEIGHT:
+            matrix = self.envelope_space[:,:,slice_idx]
+        envelopes = []
+        for x in range(len(matrix)):
+            zero_idx = np.where(matrix[x]==0)[0]
+            if len(zero_idx) == 0:
+                return envelopes
+            first_0 = np.min(zero_idx)
+            if envelopes == []:
+                envelopes.append((x, first_0))
+            if first_0 == envelopes[-1][1]:
+                continue
+            else:
+                envelopes.append((x, first_0))
+        if asix == Axis.LENGTH:
+            envelopes = [(slice_idx, envelope[0], envelope[1]) for envelope in envelopes]
+        elif asix == Axis.WIDTH:
+            envelopes = [(envelope[0], slice_idx, envelope[1]) for envelope in envelopes]
+        elif asix == Axis.HEIGHT:
+            envelopes = [(envelope[0], envelope[1], slice_idx) for envelope in envelopes]
+        copy_envelopes = [envelope for envelope in envelopes]
+        for envelope in copy_envelopes:
+            near = 0
+            if envelope[0] == 0 or self.envelope_space[envelope[0]-1,envelope[1],envelope[2]] == 1:
+                near += 1
+            if envelope[1] == 0 or self.envelope_space[envelope[0],envelope[1]-1,envelope[2]] == 1:
+                near += 1  
+            if envelope[2] == 0 or self.envelope_space[envelope[0],envelope[1],envelope[2]-1] == 1:
+                near += 1  
+            if near != 3:
+                envelopes.remove(envelope)
+        return envelopes          
+
+    def clear_occupied_candidates(self):
+        clear_idx = []
+        for idx, candidate in enumerate(self.candidates_points):
+            if self.envelope_space[candidate[0],candidate[1],candidate[2]] == 1:
+                clear_idx.append(idx)
+        idx_offset = 0
+        for idx in clear_idx:
+            self.candidates_points.pop(idx - idx_offset)
+            idx_offset += 1              
+
+    def clear_duplicate_candidates(self):
+        candidates = []
+        for idx, candidate in enumerate(self.candidates_points):
+            already_in = False
+            for in_candidates in candidates:
+                if candidate[0] == in_candidates[0] and \
+                   candidate[1] == in_candidates[1] and \
+                   candidate[2] == in_candidates[2]:
+                       already_in = True
+                       break
+            if not already_in:
+                candidates.append(candidate)
+        self.candidates_points = candidates
+
+    def brute_find_part(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], start_point:Tuple[int,int,int]=(0,0,0), strict_level:int=3) -> Tuple[int,int,int]:
         if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")
         search_lwh = [self.max_length, self.max_width, self.max_height]
@@ -136,7 +226,7 @@ class Container:
                 for axis_2 in range(axis_start_point[2], search_axis[2]):
                     axis_index_list = [axis_0, axis_1, axis_2]
                     idx_length, idx_width, idx_height = utils.axis_utils.axis_to_lwh(axis_index_list, axises)
-                    results = self.put(new_bin, (idx_length, idx_width, idx_height), strict)
+                    results = self.put(new_bin, (idx_length, idx_width, idx_height), strict_level)
                     neg_result = [not result for result in results]
                     skip_axis = utils.axis_utils.lwh_to_axis(neg_result[:3], axises)
                     if any(skip_axis[:3]):
@@ -152,7 +242,9 @@ class Container:
         return None
 
     # FIXME 需要优化逻辑，放置一个箱子后待放置点的选择目前存在错误
-    def greedy_find_with_heuristics(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], try_rotate:bool=True, strict:bool=True) -> Tuple[int, int, int]:
+    def brute_find_with_heuristics(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], try_rotate:bool=True, strict_level:int=3) -> Tuple[int, int, int]:
+        if not self.volumn_check(new_bin):
+            return None
         lwh_list = [self.next_length_points, self.next_width_points, self.next_height_points]
         axis_map = utils.axis_utils.lwh_to_axis_map(axises)
         axis_list = [lwh_list[axis_map[0]], lwh_list[axis_map[1]], lwh_list[axis_map[2]]]
@@ -163,7 +255,7 @@ class Container:
         next_points.extend(axis_list[1])
         next_points.extend(axis_list[2]) 
         if next_points == []:
-            bin_location = self.greedy_find_part(new_bin, axises)
+            bin_location = self.brute_find_part(new_bin, axises)
         else:
             suit_one = False
             for idx_point,next_position in enumerate(next_points):
@@ -180,7 +272,7 @@ class Container:
                     for idx_axis, axis_type in enumerate(utils.axis_utils.full_axis_type()):
                         copy_bin = Bin(new_bin.l, new_bin.w, new_bin.h, self.precision)
                         copy_bin.axis_transform(axis_type)
-                        results = self.put(copy_bin, next_position, strict)
+                        results = self.put(copy_bin, next_position, strict_level)
                         if all(results):
                             if idx_axis != 0:
                                 logger.info(f"Rotate bin to {axis_type}")
@@ -188,7 +280,7 @@ class Container:
                             suit = True
                             break
                 else:
-                    results = self.put(new_bin, next_position, strict)
+                    results = self.put(new_bin, next_position, strict_level)
                     if all(results):
                         bin_location = next_position
                         suit = True
@@ -196,7 +288,7 @@ class Container:
                     suit_one = True
                     break
             if not suit_one:
-                bin_location = self.greedy_find_part(new_bin, axises)
+                bin_location = self.brute_find_part(new_bin, axises)
         length_candidates = [(bin_location[0] + new_bin.length, bin_location[1], bin_location[2]),
                              (bin_location[0] + new_bin.length, bin_location[1] + new_bin.width, bin_location[2]),
                              (bin_location[0] + new_bin.length, bin_location[1], bin_location[2] + new_bin.height)]
@@ -223,6 +315,65 @@ class Container:
                 self.next_height_points.append(height_candidate)
         return bin_location
 
-    def sub_space_find(self, new_bin:Bin):
-        pass
+    def sub_space_find(self, new_bin:Bin, axises_rotate:Tuple[Axis, Axis, Axis], strict_level:int=3):
+        if not self.volumn_check(new_bin):
+            return None
+        if self.candidates_points == []:
+            self.candidates_points = [(0,0,0)]
+        # sorted_bin = sorted((new_bin.length, new_bin.width, new_bin.height))
+        candidates_match_ratio = []
+        for idx, candidate_start in enumerate(self.candidates_points):
+            # candidate_space = (self.max_length - candidate_start[0],
+            #                    self.max_width - candidate_start[1],
+            #                    self.max_height - candidate_start[2])
+            # sorted_space = sorted(candidate_space)
+            # raw_match = [sorted_space[0] / sorted_bin[0], sorted_space[1] / sorted_bin[1], sorted_space[2] / sorted_bin[2]]
+            # mean_match = sum(raw_match) / len(raw_match)
+            # raw_match = [x - mean_match for x in raw_match]
+            # raw_match = [x / mean_match for x in raw_match]
+            # raw_match = [abs(x) for x in raw_match]
+            candidate_match_ratio = -sum(candidate_start)
+            candidates_match_ratio.append(candidate_match_ratio)
+        candidates = list(zip(list(range(len(self.candidates_points))), 
+                              self.candidates_points, 
+                              candidates_match_ratio))
+        candidates = sorted(candidates, key=lambda x: x[2], reverse=True)
+        for candidate in candidates:
+            pick_idx = candidate[0]
+            pick_candidate_point = candidate[1]
+            # axis_sort = utils.axis_utils.lwh_sort(self.size_list)
+            # new_bin.axis_sort(axis_sort)  
+            new_bin.axis_sort(axises_rotate)          
+            result = self.put(new_bin, pick_candidate_point, strict_level, False)
+            if all(result):
+                length_slice = pick_candidate_point[0] + new_bin.length
+                width_slice = pick_candidate_point[1] + new_bin.width
+                height_slice = pick_candidate_point[2] + new_bin.height
+                if length_slice < self.max_length:
+                    self.candidates_points.extend(self.find_envelope_in_slice(Axis.LENGTH, length_slice))
+                if width_slice < self.max_width:
+                    self.candidates_points.extend(self.find_envelope_in_slice(Axis.WIDTH, width_slice))
+                if height_slice < self.max_height:
+                    self.candidates_points.extend(self.find_envelope_in_slice(Axis.HEIGHT, height_slice))
+                self.clear_occupied_candidates()
+                self.clear_duplicate_candidates()
+                return pick_candidate_point
+            else:
+                continue
+        return None
+
+    def greedy_search(self, new_bin:Bin, axises_rotate:Tuple[Axis, Axis, Axis], strict_level:int=3): 
+        if not self.volumn_check(new_bin):
+            return None
+        new_bin.axis_sort(axises_rotate)
+        for width_idx in range(self.max_width - new_bin.width + 1):
+            for length_idx in range(self.max_length - new_bin.length + 1):
+                bin_projection = self.simple_space[length_idx:length_idx+new_bin.length, 
+                                                    width_idx:width_idx+new_bin.width]
+                current_height = np.max(bin_projection)
+                if (self.max_height - current_height >= new_bin.height):
+                    result = self.put(new_bin, (length_idx, width_idx, current_height), strict_level, False)
+                    if all(result):
+                        return (length_idx, width_idx, current_height)
+        return None
                     

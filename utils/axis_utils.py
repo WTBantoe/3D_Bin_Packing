@@ -47,3 +47,15 @@ def full_axis_type():
             (Axis.WIDTH, Axis.HEIGHT, Axis.LENGTH),
             (Axis.HEIGHT, Axis.LENGTH, Axis.WIDTH),
             (Axis.HEIGHT, Axis.WIDTH, Axis.LENGTH)]
+
+def lwh_sort(lwh:Tuple[int,int,int]) -> Tuple[Axis, Axis, Axis]:
+    lwh_sorted = sorted(enumerate(lwh), key=lambda x:x[1])
+    axis_list = []
+    for axis in lwh_sorted:
+        if axis[0] == 0:
+            axis_list.append(Axis.LENGTH)
+        elif axis[0] == 1:
+            axis_list.append(Axis.WIDTH)
+        elif axis[0] == 2:
+            axis_list.append(Axis.HEIGHT)
+    return axis_list
