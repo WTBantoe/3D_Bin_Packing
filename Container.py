@@ -20,6 +20,7 @@ class Container:
         self.next_width_points = []
         self.next_height_points = []
         self.candidates_points = []
+        self.search_history = []
 
     @property
     def max_length(self):
@@ -192,6 +193,104 @@ class Container:
                 envelopes.remove(envelope)
         return envelopes          
 
+    def add_next_points(self, bin_place:Tuple[int,int,int], new_bin:Bin):
+        length_points = [(bin_place[0] + new_bin.length, bin_place[1], bin_place[2]),
+                             (bin_place[0] + new_bin.length, bin_place[1] + new_bin.width, bin_place[2]),
+                             (bin_place[0] + new_bin.length, bin_place[1], bin_place[2] + new_bin.height)]
+        width_points = [(bin_place[0], bin_place[1] + new_bin.width, bin_place[2]),
+                            (bin_place[0] + new_bin.length, bin_place[1] + new_bin.width, bin_place[2]),
+                            (bin_place[0], bin_place[1] + new_bin.width, bin_place[2] + new_bin.height)]
+        height_points = [(bin_place[0], bin_place[1], bin_place[2] + new_bin.height),
+                             (bin_place[0] + new_bin.length, bin_place[1], bin_place[2] + new_bin.height),
+                             (bin_place[0], bin_place[1] + new_bin.width, bin_place[2] + new_bin.height)]
+        length_points = length_points[:1]
+        width_points = width_points[:1]
+        height_points = height_points[:1]
+        for length_point in length_points:
+            if all(self.point_within(length_point)):
+                self.next_length_points.append(length_point)
+        for width_point in width_points:
+            if all(self.point_within(width_point)):
+                self.next_width_points.append(width_point)
+        for height_point in height_points: 
+            if all(self.point_within(height_point)):
+                self.next_height_points.append(height_point)
+        self.clear_occupied_points()
+        self.clear_duplicate_points()
+
+    def clear_occupied_points(self):
+        clear_idx = []
+        for idx, point in enumerate(self.next_length_points):
+            if self.space[point[0],point[1],point[2]] == 1:
+                clear_idx.append(idx)
+        idx_offset = 0
+        for idx in clear_idx:
+            self.next_length_points.pop(idx - idx_offset)
+            idx_offset += 1  
+
+        clear_idx = []
+        for idx, point in enumerate(self.next_width_points):
+            if self.space[point[0],point[1],point[2]] == 1:
+                clear_idx.append(idx)
+        idx_offset = 0
+        for idx in clear_idx:
+            self.next_width_points.pop(idx - idx_offset)
+            idx_offset += 1
+
+        clear_idx = []
+        for idx, point in enumerate(self.next_height_points):
+            if self.space[point[0],point[1],point[2]] == 1:
+                clear_idx.append(idx)
+        idx_offset = 0
+        for idx in clear_idx:
+            self.next_height_points.pop(idx - idx_offset)
+            idx_offset += 1            
+
+    def clear_duplicate_points(self):
+        points = []
+        
+        length_points = []
+        for idx, point in enumerate(self.next_length_points):
+            already_in = False
+            for in_point in points:
+                if point[0] == in_point[0] and \
+                   point[1] == in_point[1] and \
+                   point[2] == in_point[2]:
+                       already_in = True
+                       break
+            if not already_in:
+                points.append(point)
+                length_points.append(point)
+        self.next_length_points = length_points
+
+        width_points = []
+        for idx, point in enumerate(self.next_width_points):
+            already_in = False
+            for in_point in points:
+                if point[0] == in_point[0] and \
+                   point[1] == in_point[1] and \
+                   point[2] == in_point[2]:
+                       already_in = True
+                       break
+            if not already_in:
+                points.append(point)
+                width_points.append(point)  
+        self.next_width_points = width_points
+
+        height_points = []
+        for idx, point in enumerate(self.next_height_points):
+            already_in = False
+            for in_point in points:
+                if point[0] == in_point[0] and \
+                   point[1] == in_point[1] and \
+                   point[2] == in_point[2]:
+                       already_in = True
+                       break
+            if not already_in:
+                points.append(point)
+                height_points.append(point)  
+        self.next_height_points = height_points
+        
     def add_candidates(self, bin_place:Tuple[int,int,int], new_bin:Bin):
         length_slice = bin_place[0] + new_bin.length
         width_slice = bin_place[1] + new_bin.width
@@ -219,22 +318,28 @@ class Container:
         candidates = []
         for idx, candidate in enumerate(self.candidates_points):
             already_in = False
-            for in_candidates in candidates:
-                if candidate[0] == in_candidates[0] and \
-                   candidate[1] == in_candidates[1] and \
-                   candidate[2] == in_candidates[2]:
+            for in_candidate in candidates:
+                if candidate[0] == in_candidate[0] and \
+                   candidate[1] == in_candidate[1] and \
+                   candidate[2] == in_candidate[2]:
                        already_in = True
                        break
             if not already_in:
                 candidates.append(candidate)
         self.candidates_points = candidates
 
+    def update_history(self, new_bin:Bin, result:Tuple[int,int,int]):
+        self.search_history.append((new_bin.size_list, result))
+    
     def brute_find_part(self, 
                         new_bin:Bin, 
                         axises_rotate:Tuple[Axis, Axis, Axis], 
                         axises:Tuple[Axis, Axis, Axis], 
                         start_point:Tuple[int,int,int]=(0,0,0), 
                         strict_level:int=3) -> Tuple[int,int,int]:
+        if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
+            if self.search_history[-1][1] == None:
+                return None
         if not self.volumn_check(new_bin):
             return None
         new_bin.axis_sort(axises_rotate)
@@ -285,6 +390,9 @@ class Container:
                                    axises:Tuple[Axis, Axis, Axis], 
                                    try_rotate:bool=True, 
                                    strict_level:int=3) -> Tuple[int, int, int]:
+        if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
+            if self.search_history[-1][1] == None:
+                return None
         if not self.volumn_check(new_bin):
             return None
         new_bin.axis_sort(axises_rotate)
@@ -302,14 +410,6 @@ class Container:
         else:
             suit_one = False
             for idx_point,next_position in enumerate(next_points):
-                if self.space[next_position[0],next_position[1],next_position[2]] == 1:
-                    if idx_point < axis_len_list[0]:
-                        axis_list[0].remove(next_position)
-                    elif idx_point < axis_len_list[0] + axis_len_list[1]:
-                        axis_list[1].remove(next_position)
-                    elif idx_point < axis_len_list[0] + axis_len_list[1] + axis_len_list[2]:
-                        axis_list[2].remove(next_position)
-                    continue
                 suit = False
                 if try_rotate:
                     for idx_axis, axis_type in enumerate(utils.axis_utils.full_axis_type()):
@@ -332,32 +432,8 @@ class Container:
                     break
             if not suit_one:
                 bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
-        if bin_location == None:
-            return bin_location
-        length_candidates = [(bin_location[0] + new_bin.length, bin_location[1], bin_location[2]),
-                             (bin_location[0] + new_bin.length, bin_location[1] + new_bin.width, bin_location[2]),
-                             (bin_location[0] + new_bin.length, bin_location[1], bin_location[2] + new_bin.height)]
-        width_candidates = [(bin_location[0], bin_location[1] + new_bin.width, bin_location[2]),
-                            (bin_location[0] + new_bin.length, bin_location[1] + new_bin.width, bin_location[2]),
-                            (bin_location[0], bin_location[1] + new_bin.width, bin_location[2] + new_bin.height)]
-        height_candidates = [(bin_location[0], bin_location[1], bin_location[2] + new_bin.height),
-                             (bin_location[0] + new_bin.length, bin_location[1], bin_location[2] + new_bin.height),
-                             (bin_location[0], bin_location[1] + new_bin.width, bin_location[2] + new_bin.height)]
-        length_candidates = length_candidates[:1]
-        width_candidates = width_candidates[:1]
-        height_candidates = height_candidates[:1]
-        for length_candidate in length_candidates:
-            if all(self.point_within(length_candidate)) and \
-            self.space[length_candidate[0],length_candidate[1],length_candidate[2]] != 1:
-                self.next_length_points.append(length_candidate)
-        for width_candidate in width_candidates:
-            if all(self.point_within(width_candidate)) and \
-            self.space[width_candidate[0],width_candidate[1],width_candidate[2]] != 1:
-                self.next_width_points.append(width_candidate)
-        for height_candidate in height_candidates: 
-            if all(self.point_within(height_candidate)) and \
-            self.space[height_candidate[0],height_candidate[1],height_candidate[2]] != 1:
-                self.next_height_points.append(height_candidate)
+        if bin_location != None:
+            self.add_next_points(bin_location, new_bin)
         return bin_location
 
     def sub_space_find(self, 
@@ -365,6 +441,9 @@ class Container:
                        axises_rotate:Tuple[Axis, Axis, Axis], 
                        axises:Tuple[Axis, Axis, Axis], 
                        strict_level:int=3) -> Tuple[int, int, int]:
+        if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
+            if self.search_history[-1][1] == None:
+                return None
         if not self.volumn_check(new_bin):
             return None
         new_bin.axis_sort(axises_rotate)
@@ -409,6 +488,9 @@ class Container:
                       axises_rotate:Tuple[Axis, Axis, Axis], 
                       axises:Tuple[Axis, Axis, Axis], 
                       strict_level:int=3) -> Tuple[int, int, int]: 
+        if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
+            if self.search_history[-1][1] == None:
+                return None
         if not self.volumn_check(new_bin):
             return None
         new_bin.axis_sort(axises_rotate)
