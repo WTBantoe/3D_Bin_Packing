@@ -5,6 +5,8 @@ from typing import Any, List, Tuple
 from Bin import Bin
 import numpy as np
 
+# TODO 添加按历史搜索功能
+# TODO 添加按起始点搜索功能
 class Container:
     def __init__(self, ml:float, mw:float, mh:float, precision:int=PRECISION):
         self.ml = ml
@@ -217,13 +219,27 @@ class Container:
     def brute_find_part(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], start_point:Tuple[int,int,int]=(0,0,0), strict_level:int=3) -> Tuple[int,int,int]:
         if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")
-        search_lwh = [self.max_length, self.max_width, self.max_height]
-        search_axis = utils.axis_utils.lwh_to_axis(search_lwh, axises)
+        search_axis = utils.axis_utils.lwh_to_axis(self.size_list, axises)
         axis_start_point = utils.axis_utils.lwh_to_axis(start_point, axises)
-
-        for axis_0 in range(axis_start_point[0], search_axis[0]):
-            for axis_1 in range(axis_start_point[1], search_axis[1]):
-                for axis_2 in range(axis_start_point[2], search_axis[2]):
+        axis_space = np.transpose(self.space, (utils.axis_utils.lwh_to_axis_map(axises)))
+        bin_axis = utils.axis_utils.lwh_to_axis(new_bin.size_list, axises)
+        
+        skip_axis = [False, False, False]
+        for axis_0 in range(0, search_axis[0] - bin_axis[0] + 1):
+            if axis_0 < axis_start_point[0]:
+                continue
+            if search_axis[1]*search_axis[2] - np.sum(axis_space[axis_0]) < bin_axis[1] * bin_axis[2]:
+                continue
+            for axis_1 in range(0, search_axis[1] - bin_axis[1] + 1):
+                if axis_0 == axis_start_point[0] and axis_1 < axis_start_point[1]:
+                    continue
+                if search_axis[2] - np.sum(axis_space[axis_0, axis_1]) < bin_axis[2]:
+                    continue
+                for axis_2 in range(0, search_axis[2] - bin_axis[2] + 1):
+                    if axis_0 == axis_start_point[0] and axis_1 == axis_start_point[1] and axis_2 < axis_start_point[2]:
+                        continue
+                    if axis_space[axis_0, axis_1, axis_2] == 1:
+                        continue
                     axis_index_list = [axis_0, axis_1, axis_2]
                     idx_length, idx_width, idx_height = utils.axis_utils.axis_to_lwh(axis_index_list, axises)
                     results = self.put(new_bin, (idx_length, idx_width, idx_height), strict_level)
@@ -289,6 +305,8 @@ class Container:
                     break
             if not suit_one:
                 bin_location = self.brute_find_part(new_bin, axises)
+        if bin_location == None:
+            return bin_location
         length_candidates = [(bin_location[0] + new_bin.length, bin_location[1], bin_location[2]),
                              (bin_location[0] + new_bin.length, bin_location[1] + new_bin.width, bin_location[2]),
                              (bin_location[0] + new_bin.length, bin_location[1], bin_location[2] + new_bin.height)]
