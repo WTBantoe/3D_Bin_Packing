@@ -229,7 +229,15 @@ class Container:
                 candidates.append(candidate)
         self.candidates_points = candidates
 
-    def brute_find_part(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], start_point:Tuple[int,int,int]=(0,0,0), strict_level:int=3) -> Tuple[int,int,int]:
+    def brute_find_part(self, 
+                        new_bin:Bin, 
+                        axises_rotate:Tuple[Axis, Axis, Axis], 
+                        axises:Tuple[Axis, Axis, Axis], 
+                        start_point:Tuple[int,int,int]=(0,0,0), 
+                        strict_level:int=3) -> Tuple[int,int,int]:
+        if not self.volumn_check(new_bin):
+            return None
+        new_bin.axis_sort(axises_rotate)
         if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")
         search_axis = utils.axis_utils.lwh_to_axis(self.size_list, axises)
@@ -271,9 +279,15 @@ class Container:
         return None
 
     # FIXME 需要优化逻辑，放置一个箱子后待放置点的选择目前存在错误
-    def brute_find_with_heuristics(self, new_bin:Bin, axises:Tuple[Axis, Axis, Axis], try_rotate:bool=True, strict_level:int=3) -> Tuple[int, int, int]:
+    def brute_find_with_heuristics(self, 
+                                   new_bin:Bin, 
+                                   axises_rotate:Tuple[Axis, Axis, Axis], 
+                                   axises:Tuple[Axis, Axis, Axis], 
+                                   try_rotate:bool=True, 
+                                   strict_level:int=3) -> Tuple[int, int, int]:
         if not self.volumn_check(new_bin):
             return None
+        new_bin.axis_sort(axises_rotate)
         lwh_list = [self.next_length_points, self.next_width_points, self.next_height_points]
         axis_map = utils.axis_utils.lwh_to_axis_map(axises)
         axis_list = [lwh_list[axis_map[0]], lwh_list[axis_map[1]], lwh_list[axis_map[2]]]
@@ -346,9 +360,14 @@ class Container:
                 self.next_height_points.append(height_candidate)
         return bin_location
 
-    def sub_space_find(self, new_bin:Bin, axises_rotate:Tuple[Axis, Axis, Axis], axises:Tuple[Axis, Axis, Axis], strict_level:int=3):
+    def sub_space_find(self, 
+                       new_bin:Bin, 
+                       axises_rotate:Tuple[Axis, Axis, Axis], 
+                       axises:Tuple[Axis, Axis, Axis], 
+                       strict_level:int=3) -> Tuple[int, int, int]:
         if not self.volumn_check(new_bin):
             return None
+        new_bin.axis_sort(axises_rotate)
         if self.candidates_points == []:
             self.candidates_points = [(0,0,0)]
         # sorted_bin = sorted((new_bin.length, new_bin.width, new_bin.height))
@@ -373,8 +392,7 @@ class Container:
             pick_idx = candidate[0]
             pick_candidate_point = candidate[1]
             # axis_sort = utils.axis_utils.lwh_sort(self.size_list)
-            # new_bin.axis_sort(axis_sort)  
-            new_bin.axis_sort(axises_rotate)          
+            # new_bin.axis_sort(axis_sort)   
             results = self.put(new_bin, pick_candidate_point, strict_level)
             if all(results):
                 self.add_candidates(pick_candidate_point, new_bin)
@@ -386,7 +404,11 @@ class Container:
             self.add_candidates(bin_location, new_bin)
         return bin_location
 
-    def greedy_search(self, new_bin:Bin, axises_rotate:Tuple[Axis, Axis, Axis], axises:Tuple[Axis, Axis, Axis], strict_level:int=3): 
+    def greedy_search(self, 
+                      new_bin:Bin, 
+                      axises_rotate:Tuple[Axis, Axis, Axis], 
+                      axises:Tuple[Axis, Axis, Axis], 
+                      strict_level:int=3) -> Tuple[int, int, int]: 
         if not self.volumn_check(new_bin):
             return None
         new_bin.axis_sort(axises_rotate)

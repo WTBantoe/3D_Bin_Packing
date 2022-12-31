@@ -19,8 +19,8 @@ for single_bin in bins:
     bins_volumn_sum += single_bin.volume
     single_bin.axis_sort(axises_rotate)
     logger.info(f"Putting bin: {single_bin}")
-    bin_place = container.brute_find_part(single_bin, axises_put, (0,0,0), 3) # 这是第一种方法，暴力搜索
-    # bin_place = container.brute_find_with_heuristics(single_bin, axises_put, True, 3) # 这是第二种方法，候选点搜索
+    bin_place = container.brute_find_part(single_bin, axises_rotate, axises_put, (0,0,0), 3) # 这是第一种方法，暴力搜索
+    # bin_place = container.brute_find_with_heuristics(single_bin, axises_rotate, axises_put, True, 3) # 这是第二种方法，候选点搜索
     # bin_place = container.greedy_search(single_bin, axises_rotate, axises_put, 1) # 这是第三种方法，贪心算法
     # bin_place = container.sub_space_find(single_bin, axises_rotate, axises_put, 1) # 这是第四种方法，子空间搜索
     logger.info(f"Bin placed at {bin_place}")    
