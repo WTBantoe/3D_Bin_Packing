@@ -298,7 +298,7 @@ class Container:
         next_points.extend(axis_list[1])
         next_points.extend(axis_list[2]) 
         if next_points == []:
-            bin_location = self.brute_find_part(new_bin, axises, strict_level=strict_level)
+            bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
         else:
             suit_one = False
             for idx_point,next_position in enumerate(next_points):
@@ -331,7 +331,7 @@ class Container:
                     suit_one = True
                     break
             if not suit_one:
-                bin_location = self.brute_find_part(new_bin, axises, strict_level=strict_level)
+                bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
         if bin_location == None:
             return bin_location
         length_candidates = [(bin_location[0] + new_bin.length, bin_location[1], bin_location[2]),
@@ -399,7 +399,7 @@ class Container:
                 return pick_candidate_point
             else:
                 continue
-        bin_location = self.brute_find_part(new_bin, axises, strict_level=strict_level)
+        bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
         if bin_location != None:
             self.add_candidates(bin_location, new_bin)
         return bin_location
@@ -422,6 +422,6 @@ class Container:
                     if all(result):
                         return (length_idx, width_idx, current_height)
         
-        bin_location = self.brute_find_part(new_bin, axises, strict_level=strict_level)
+        bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
         return bin_location
                     
