@@ -3,6 +3,7 @@ import logging
 import verboselogs
 import sys
 import random
+import time
 
 random.seed(1)
 
@@ -19,7 +20,8 @@ class Axis(Enum):
 
 PRECISION = 0 # =10^x
 
-LOG_FILE_PATH = r"D:\OneDrive\Projects\Coding\Python\Fun\3D_Bin_Packing\run_log.log"
+LOG_FILE_PATH = r"D:\OneDrive\Projects\Coding\Python\Fun\3D_Bin_Packing\run_log_" + \
+                time.asctime().replace(" ","_").replace(":","_") + r".log"
 
 def get_logger():
     logger = verboselogs.VerboseLogger("3DBP")

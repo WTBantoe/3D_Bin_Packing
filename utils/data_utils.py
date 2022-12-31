@@ -18,7 +18,7 @@ def generate_bins(bin_num:int, container:Container) -> List[Bin]:
     logger.info("{} bin(s) generated.".format(bin_num))
     return bin_list
     
-def read_task(read_path:str, bin_types:int, precision:int=PRECISION) -> Tuple[Container, List[Bin]]:
+def read_task(read_path:str, bin_types:int, pick_num:int=None, precision:int=PRECISION) -> Tuple[Container, List[Bin]]:
     bins_list = []
     abs_path = os.path.abspath(read_path)
     if not os.path.exists(abs_path):
@@ -60,7 +60,7 @@ def read_task(read_path:str, bin_types:int, precision:int=PRECISION) -> Tuple[Co
     for idx, (container, bins, bin_type) in enumerate(zip(container_list, bins_list, types_list)):
         if bin_type == bin_types:
             valid_idies.append(idx)
-    random_choice = int(random() * len(valid_idies))
+    random_choice = int(random() * len(valid_idies)) if pick_num == None else pick_num - 1
     valid_idx = valid_idies[random_choice]
     logger.info(f"{len(container_list)} task(s) in total, {len(valid_idies)} valid task(s), {valid_idx+1}nd/{random_choice+1}nd picked.")
     return container_list[valid_idx], bins_list[valid_idx]

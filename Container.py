@@ -192,6 +192,19 @@ class Container:
                 envelopes.remove(envelope)
         return envelopes          
 
+    def add_candidates(self, bin_place:Tuple[int,int,int], new_bin:Bin):
+        length_slice = bin_place[0] + new_bin.length
+        width_slice = bin_place[1] + new_bin.width
+        height_slice = bin_place[2] + new_bin.height
+        if length_slice < self.max_length:
+            self.candidates_points.extend(self.find_envelope_in_slice(Axis.LENGTH, length_slice))
+        if width_slice < self.max_width:
+            self.candidates_points.extend(self.find_envelope_in_slice(Axis.WIDTH, width_slice))
+        if height_slice < self.max_height:
+            self.candidates_points.extend(self.find_envelope_in_slice(Axis.HEIGHT, height_slice))
+        self.clear_occupied_candidates()
+        self.clear_duplicate_candidates()
+
     def clear_occupied_candidates(self):
         clear_idx = []
         for idx, candidate in enumerate(self.candidates_points):
@@ -271,7 +284,7 @@ class Container:
         next_points.extend(axis_list[1])
         next_points.extend(axis_list[2]) 
         if next_points == []:
-            bin_location = self.brute_find_part(new_bin, axises)
+            bin_location = self.brute_find_part(new_bin, axises, strict_level=strict_level)
         else:
             suit_one = False
             for idx_point,next_position in enumerate(next_points):
@@ -304,7 +317,7 @@ class Container:
                     suit_one = True
                     break
             if not suit_one:
-                bin_location = self.brute_find_part(new_bin, axises)
+                bin_location = self.brute_find_part(new_bin, axises, strict_level=strict_level)
         if bin_location == None:
             return bin_location
         length_candidates = [(bin_location[0] + new_bin.length, bin_location[1], bin_location[2]),
@@ -333,7 +346,7 @@ class Container:
                 self.next_height_points.append(height_candidate)
         return bin_location
 
-    def sub_space_find(self, new_bin:Bin, axises_rotate:Tuple[Axis, Axis, Axis], strict_level:int=3):
+    def sub_space_find(self, new_bin:Bin, axises_rotate:Tuple[Axis, Axis, Axis], axises:Tuple[Axis, Axis, Axis], strict_level:int=3):
         if not self.volumn_check(new_bin):
             return None
         if self.candidates_points == []:
@@ -362,25 +375,18 @@ class Container:
             # axis_sort = utils.axis_utils.lwh_sort(self.size_list)
             # new_bin.axis_sort(axis_sort)  
             new_bin.axis_sort(axises_rotate)          
-            result = self.put(new_bin, pick_candidate_point, strict_level, False)
-            if all(result):
-                length_slice = pick_candidate_point[0] + new_bin.length
-                width_slice = pick_candidate_point[1] + new_bin.width
-                height_slice = pick_candidate_point[2] + new_bin.height
-                if length_slice < self.max_length:
-                    self.candidates_points.extend(self.find_envelope_in_slice(Axis.LENGTH, length_slice))
-                if width_slice < self.max_width:
-                    self.candidates_points.extend(self.find_envelope_in_slice(Axis.WIDTH, width_slice))
-                if height_slice < self.max_height:
-                    self.candidates_points.extend(self.find_envelope_in_slice(Axis.HEIGHT, height_slice))
-                self.clear_occupied_candidates()
-                self.clear_duplicate_candidates()
+            results = self.put(new_bin, pick_candidate_point, strict_level)
+            if all(results):
+                self.add_candidates(pick_candidate_point, new_bin)
                 return pick_candidate_point
             else:
                 continue
-        return None
+        bin_location = self.brute_find_part(new_bin, axises, strict_level=strict_level)
+        if bin_location != None:
+            self.add_candidates(bin_location, new_bin)
+        return bin_location
 
-    def greedy_search(self, new_bin:Bin, axises_rotate:Tuple[Axis, Axis, Axis], strict_level:int=3): 
+    def greedy_search(self, new_bin:Bin, axises_rotate:Tuple[Axis, Axis, Axis], axises:Tuple[Axis, Axis, Axis], strict_level:int=3): 
         if not self.volumn_check(new_bin):
             return None
         new_bin.axis_sort(axises_rotate)
@@ -390,8 +396,10 @@ class Container:
                                                     width_idx:width_idx+new_bin.width]
                 current_height = np.max(bin_projection)
                 if (self.max_height - current_height >= new_bin.height):
-                    result = self.put(new_bin, (length_idx, width_idx, current_height), strict_level, False)
+                    result = self.put(new_bin, (length_idx, width_idx, current_height), strict_level)
                     if all(result):
                         return (length_idx, width_idx, current_height)
-        return None
+        
+        bin_location = self.brute_find_part(new_bin, axises, strict_level=strict_level)
+        return bin_location
                     
