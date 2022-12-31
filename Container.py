@@ -488,9 +488,12 @@ class Container:
                       axises_rotate:Tuple[Axis, Axis, Axis], 
                       axises:Tuple[Axis, Axis, Axis], 
                       strict_level:int=3) -> Tuple[int, int, int]: 
+        last_end = (0,0,0)
         if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
             if self.search_history[-1][1] == None:
                 return None
+            else:
+                last_end = self.search_history[-1][1]
         if not self.volumn_check(new_bin):
             return None
         new_bin.axis_sort(axises_rotate)
@@ -502,8 +505,8 @@ class Container:
                 if (self.max_height - current_height >= new_bin.height):
                     result = self.put(new_bin, (length_idx, width_idx, current_height), strict_level)
                     if all(result):
-                        return (length_idx, width_idx, current_height)
-        
-        bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
+                        return (length_idx, width_idx, current_height) 
+        bin_location = self.brute_find_part(new_bin, axises_rotate, axises, start_point=last_end, strict_level=strict_level)
         return bin_location
+        # return None
                     
