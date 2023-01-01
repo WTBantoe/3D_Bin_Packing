@@ -37,6 +37,9 @@ class Bin:
     @property
     def volume(self):
         return self.length * self.width * self.height
+
+    def copy(self):
+        return Bin(self.l, self.w, self.h, self.precision)
     
     def axis_sort(self, axises:Tuple[Axis, Axis, Axis], ascending:bool=True) -> bool:
         if not utils.axis_utils.valid_axis(axises):

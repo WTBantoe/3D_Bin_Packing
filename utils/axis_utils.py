@@ -32,12 +32,19 @@ def axis_to_lwh_map(axises:Tuple[Axis, Axis, Axis]) -> List[int]:
 
 def lwh_to_axis(lwh:Tuple[int,int,int], axises:Tuple[Axis, Axis, Axis]):
     axis_map = lwh_to_axis_map(axises)
-    axis = [lwh[axis_map[0]], lwh[axis_map[1]], lwh[axis_map[2]]]
+    axis = []
+    for one_axis_map in axis_map:
+        axis.append(lwh[one_axis_map])
     return axis
 
 def axis_to_lwh(axis:Tuple[int,int,int], axises:Tuple[Axis, Axis, Axis]):
     lwh_map = axis_to_lwh_map(axises)
-    lwh = [axis[lwh_map[0]], axis[lwh_map[1]], axis[lwh_map[2]]]
+    lwh = []
+    for one_lwh_map in lwh_map:
+        if one_lwh_map != None:
+            lwh.append(axis[one_lwh_map])
+        else:
+            lwh.append(None)
     return lwh
 
 def full_axis_type():

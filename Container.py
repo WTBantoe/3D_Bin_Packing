@@ -5,8 +5,6 @@ from typing import Any, List, Tuple
 from Bin import Bin
 import numpy as np
 
-# TODO 添加按历史搜索功能
-# TODO 添加按起始点搜索功能
 class Container:
     def __init__(self, ml:float, mw:float, mh:float, precision:int=PRECISION):
         self.ml = ml
@@ -16,10 +14,7 @@ class Container:
         self.space = self.construct_space()
         self.envelope_space = self.construct_space()
         self.simple_space = self.construct_simple_space()
-        self.next_length_points = []
-        self.next_width_points = []
-        self.next_height_points = []
-        self.candidates_points = []
+        self.candidate_points = []
         self.search_history = []
 
     @property
@@ -57,6 +52,14 @@ class Container:
     def construct_simple_space(self) -> np.ndarray:
         return np.zeros((self.max_length, self.max_width), dtype=np.int32)
 
+    @property
+    def full_simple_space(self) -> np.ndarray:
+        space = np.zeros((self.max_length, self.max_width, self.max_height), dtype=np.int32)
+        for axis0 in range(self.simple_space.shape[0]):
+            for axis1 in range(self.simple_space.shape[1]):
+                space[axis0, axis1, :self.simple_space[axis0, axis1]] = 1
+        return space
+        
     @property
     def space_utilization(self) -> np.float32:
         return np.sum(self.space)/np.sum(np.ones_like(self.space))
@@ -193,130 +196,47 @@ class Container:
                 envelopes.remove(envelope)
         return envelopes          
 
-    def add_next_points(self, bin_place:Tuple[int,int,int], new_bin:Bin):
-        length_points = [(bin_place[0] + new_bin.length, bin_place[1], bin_place[2]),
-                             (bin_place[0] + new_bin.length, bin_place[1] + new_bin.width, bin_place[2]),
-                             (bin_place[0] + new_bin.length, bin_place[1], bin_place[2] + new_bin.height)]
-        width_points = [(bin_place[0], bin_place[1] + new_bin.width, bin_place[2]),
-                            (bin_place[0] + new_bin.length, bin_place[1] + new_bin.width, bin_place[2]),
-                            (bin_place[0], bin_place[1] + new_bin.width, bin_place[2] + new_bin.height)]
-        height_points = [(bin_place[0], bin_place[1], bin_place[2] + new_bin.height),
-                             (bin_place[0] + new_bin.length, bin_place[1], bin_place[2] + new_bin.height),
-                             (bin_place[0], bin_place[1] + new_bin.width, bin_place[2] + new_bin.height)]
-        length_points = length_points[:1]
-        width_points = width_points[:1]
-        height_points = height_points[:1]
-        for length_point in length_points:
-            if all(self.point_within(length_point)):
-                self.next_length_points.append(length_point)
-        for width_point in width_points:
-            if all(self.point_within(width_point)):
-                self.next_width_points.append(width_point)
-        for height_point in height_points: 
-            if all(self.point_within(height_point)):
-                self.next_height_points.append(height_point)
-        self.clear_occupied_points()
-        self.clear_duplicate_points()
-
-    def clear_occupied_points(self):
-        clear_idx = []
-        for idx, point in enumerate(self.next_length_points):
-            if self.space[point[0],point[1],point[2]] == 1:
-                clear_idx.append(idx)
-        idx_offset = 0
-        for idx in clear_idx:
-            self.next_length_points.pop(idx - idx_offset)
-            idx_offset += 1  
-
-        clear_idx = []
-        for idx, point in enumerate(self.next_width_points):
-            if self.space[point[0],point[1],point[2]] == 1:
-                clear_idx.append(idx)
-        idx_offset = 0
-        for idx in clear_idx:
-            self.next_width_points.pop(idx - idx_offset)
-            idx_offset += 1
-
-        clear_idx = []
-        for idx, point in enumerate(self.next_height_points):
-            if self.space[point[0],point[1],point[2]] == 1:
-                clear_idx.append(idx)
-        idx_offset = 0
-        for idx in clear_idx:
-            self.next_height_points.pop(idx - idx_offset)
-            idx_offset += 1            
-
-    def clear_duplicate_points(self):
-        points = []
-        
-        length_points = []
-        for idx, point in enumerate(self.next_length_points):
-            already_in = False
-            for in_point in points:
-                if point[0] == in_point[0] and \
-                   point[1] == in_point[1] and \
-                   point[2] == in_point[2]:
-                       already_in = True
-                       break
-            if not already_in:
-                points.append(point)
-                length_points.append(point)
-        self.next_length_points = length_points
-
-        width_points = []
-        for idx, point in enumerate(self.next_width_points):
-            already_in = False
-            for in_point in points:
-                if point[0] == in_point[0] and \
-                   point[1] == in_point[1] and \
-                   point[2] == in_point[2]:
-                       already_in = True
-                       break
-            if not already_in:
-                points.append(point)
-                width_points.append(point)  
-        self.next_width_points = width_points
-
-        height_points = []
-        for idx, point in enumerate(self.next_height_points):
-            already_in = False
-            for in_point in points:
-                if point[0] == in_point[0] and \
-                   point[1] == in_point[1] and \
-                   point[2] == in_point[2]:
-                       already_in = True
-                       break
-            if not already_in:
-                points.append(point)
-                height_points.append(point)  
-        self.next_height_points = height_points
-        
+    # TODO 这些点全部添加的效果并不好，考虑通过参数添加部分点
     def add_candidates(self, bin_place:Tuple[int,int,int], new_bin:Bin):
         length_slice = bin_place[0] + new_bin.length
         width_slice = bin_place[1] + new_bin.width
         height_slice = bin_place[2] + new_bin.height
         if length_slice < self.max_length:
-            self.candidates_points.extend(self.find_envelope_in_slice(Axis.LENGTH, length_slice))
+            self.candidate_points.extend(self.find_envelope_in_slice(Axis.LENGTH, length_slice))
         if width_slice < self.max_width:
-            self.candidates_points.extend(self.find_envelope_in_slice(Axis.WIDTH, width_slice))
+            self.candidate_points.extend(self.find_envelope_in_slice(Axis.WIDTH, width_slice))
         if height_slice < self.max_height:
-            self.candidates_points.extend(self.find_envelope_in_slice(Axis.HEIGHT, height_slice))
+            self.candidate_points.extend(self.find_envelope_in_slice(Axis.HEIGHT, height_slice))
+        raw_surrounding_points = [(bin_place[0] + new_bin.length, bin_place[1], bin_place[2]),
+                              (bin_place[0], bin_place[1] + new_bin.width, bin_place[2]),
+                              (bin_place[0], bin_place[1], bin_place[2] + new_bin.height),
+                              (bin_place[0] + new_bin.length, bin_place[1] + new_bin.width, bin_place[2]),
+                              (bin_place[0] + new_bin.length, bin_place[1], bin_place[2] + new_bin.height),
+                              (bin_place[0], bin_place[1] + new_bin.width, bin_place[2] + new_bin.height),
+                              (bin_place[0] + new_bin.length, bin_place[1] + new_bin.width, bin_place[2] + new_bin.height)]
+        surrounding_points = []
+        for surrounding_point in raw_surrounding_points:
+            if all(self.point_within(surrounding_point)):
+                surrounding_points.append(surrounding_point)
+        self.candidate_points.extend(surrounding_points)
+        
         self.clear_occupied_candidates()
         self.clear_duplicate_candidates()
+        self.candidates_sort()
 
     def clear_occupied_candidates(self):
         clear_idx = []
-        for idx, candidate in enumerate(self.candidates_points):
+        for idx, candidate in enumerate(self.candidate_points):
             if self.envelope_space[candidate[0],candidate[1],candidate[2]] == 1:
                 clear_idx.append(idx)
         idx_offset = 0
         for idx in clear_idx:
-            self.candidates_points.pop(idx - idx_offset)
+            self.candidate_points.pop(idx - idx_offset)
             idx_offset += 1              
 
     def clear_duplicate_candidates(self):
         candidates = []
-        for idx, candidate in enumerate(self.candidates_points):
+        for idx, candidate in enumerate(self.candidate_points):
             already_in = False
             for in_candidate in candidates:
                 if candidate[0] == in_candidate[0] and \
@@ -326,40 +246,110 @@ class Container:
                        break
             if not already_in:
                 candidates.append(candidate)
-        self.candidates_points = candidates
+        self.candidate_points = candidates
 
-    def update_history(self, new_bin:Bin, result:Tuple[int,int,int]):
-        self.search_history.append((new_bin.size_list, result))
+    # TODO 候选点的排列方法有问题，比当初分三个列表差，考虑通过参数选择排列方式
+    def candidates_sort(self):
+        point_scores = []
+        for candidate in self.candidate_points:
+            point_score = -(candidate[0] / self.max_length + candidate[1] / self.max_width + candidate[2] / self.max_height)
+            point_scores.append(point_score)
+        candidates = zip(self.candidate_points, point_scores)
+        candidates = sorted(candidates, key=lambda x: x[1], reverse=True)
+        self.candidate_points = [candidate[0] for candidate in candidates]
     
-    def brute_find_part(self, 
-                        new_bin:Bin, 
-                        axises_rotate:Tuple[Axis, Axis, Axis], 
-                        axises:Tuple[Axis, Axis, Axis], 
-                        start_point:Tuple[int,int,int]=(0,0,0), 
-                        strict_level:int=3) -> Tuple[int,int,int]:
+    def update_history(self, 
+                       new_bin:Bin, 
+                       result:Tuple[int,int,int],
+                       ori_method:SearchMethod,
+                       real_method:SearchMethod):
+        self.search_history.append((new_bin.size_list, result, ori_method, real_method))
+
+    def search(self, 
+               new_bin:Bin, 
+               axises_rotate:Tuple[Axis, Axis, Axis], 
+               method:SearchMethod, 
+               strict_level:int=3, 
+               **config):
+        copy_bin = new_bin.copy()
+        logger.info(f"Putting bin: {new_bin}, using {method}.")
+        # 搜索历史检测，若上一个被放入的箱子没有找到，那同类型的也找不到
+        last_end = (0, 0, 0)
+        last_brute_end = (0, 0, 0)
         if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
             if self.search_history[-1][1] == None:
-                return None
+                bin_location = None
+                self.update_history(copy_bin, bin_location, method, SearchMethod.NONE)
+                return bin_location
+            else:
+                if self.search_history[-1][2] == SearchMethod.BRUTE:
+                    last_brute_end = self.search_history[-1][1]
+                elif self.search_history[-1][2] == SearchMethod.GREEDY and self.search_history[-1][3] == SearchMethod.GREEDY:
+                    last_end = self.search_history[-1][1]
+                else:
+                    if self.search_history[-1][3] == SearchMethod.BRUTE:
+                        last_brute_end = self.search_history[-1][1]
+        # 容量检测，如果容量过小，就肯定放不下
         if not self.volumn_check(new_bin):
-            return None
+            bin_location = None
+            self.update_history(copy_bin, bin_location, method, SearchMethod.NONE)
+            return bin_location
+        
         new_bin.axis_sort(axises_rotate)
+        # 选择搜索方法
+        if method == SearchMethod.BRUTE:
+            if not config["axises"]:
+                config["axises"] = utils.axis_utils.full_axis_type()[0]
+            bin_location, real_method = self.brute_search(space = self.space, 
+                                                          new_bin = new_bin, 
+                                                          axises = config["axises"], 
+                                                          start_point = last_brute_end, 
+                                                          strict_level = strict_level)          
+        elif method == SearchMethod.CANDIDATE_POINTS:
+            if not config["try_rotate"]:
+                config["try_rotate"] = True
+            bin_location, real_method = self.candidates_search(new_bin = new_bin, 
+                                                               try_rotate = config["try_rotate"], 
+                                                               strict_level = strict_level,
+                                                               brute_start_point=last_brute_end)
+        elif method == SearchMethod.SUB_SPACE:
+            raise NotImplementedError("Serch method not implemented!")
+        elif method == SearchMethod.GREEDY:
+            if not config["axises"]:
+                config["axises"] = utils.axis_utils.full_axis_type()[0][:2]
+            bin_location, real_method = self.greedy_search(new_bin = new_bin,
+                                                           axises = config["axises"],
+                                                           start_point=last_end[:2],
+                                                           strict_level = strict_level,
+                                                           brute_start_point=last_brute_end)
+            
+        self.update_history(copy_bin, bin_location, method, real_method)
+        return bin_location
+  
+    def brute_search(self, 
+                     space:np.ndarray,
+                     new_bin:Bin, 
+                     axises:Tuple[Axis, Axis, Axis]=(Axis.LENGTH, Axis.WIDTH, Axis.HEIGHT), 
+                     start_point:Tuple[int,int,int]=(0,0,0), 
+                     strict_level:int=3) -> Tuple[Tuple[int,int,int], SearchMethod]:
+        
         if not utils.axis_utils.valid_axis(axises):
             raise ValueError("Axises are not valid!")
         search_axis = utils.axis_utils.lwh_to_axis(self.size_list, axises)
         axis_start_point = utils.axis_utils.lwh_to_axis(start_point, axises)
-        axis_space = np.transpose(self.space, (utils.axis_utils.lwh_to_axis_map(axises)))
+        axis_space = np.transpose(space, (utils.axis_utils.lwh_to_axis_map(axises)))
         bin_axis = utils.axis_utils.lwh_to_axis(new_bin.size_list, axises)
         
         skip_axis = [False, False, False]
         for axis_0 in range(0, search_axis[0] - bin_axis[0] + 1):
             if axis_0 < axis_start_point[0]:
                 continue
-            if search_axis[1]*search_axis[2] - np.sum(axis_space[axis_0]) < bin_axis[1] * bin_axis[2]:
+            if np.any(search_axis[1]*search_axis[2] - np.sum(axis_space[axis_0 : axis_0+bin_axis[0]], axis=(1,2)) < bin_axis[1] * bin_axis[2]):
                 continue
             for axis_1 in range(0, search_axis[1] - bin_axis[1] + 1):
                 if axis_0 == axis_start_point[0] and axis_1 < axis_start_point[1]:
                     continue
-                if search_axis[2] - np.sum(axis_space[axis_0, axis_1]) < bin_axis[2]:
+                if np.any(search_axis[2] - np.sum(axis_space[axis_0, axis_1 : axis_1+bin_axis[1]], axis=1) < bin_axis[2]):
                     continue
                 for axis_2 in range(0, search_axis[2] - bin_axis[2] + 1):
                     if axis_0 == axis_start_point[0] and axis_1 == axis_start_point[1] and axis_2 < axis_start_point[2]:
@@ -376,137 +366,98 @@ class Container:
                     elif any(neg_result):
                         continue
                     else:
-                        return (idx_length, idx_width, idx_height) 
+                        return (idx_length, idx_width, idx_height), SearchMethod.BRUTE
                 if any(skip_axis[:2]):
                     break 
             if any(skip_axis[:1]):
                 break
-        return None
+        return None, SearchMethod.BRUTE
 
-    # FIXME 需要优化逻辑，放置一个箱子后待放置点的选择目前存在错误
-    def brute_find_with_heuristics(self, 
-                                   new_bin:Bin, 
-                                   axises_rotate:Tuple[Axis, Axis, Axis], 
-                                   axises:Tuple[Axis, Axis, Axis], 
-                                   try_rotate:bool=True, 
-                                   strict_level:int=3) -> Tuple[int, int, int]:
-        if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
-            if self.search_history[-1][1] == None:
-                return None
-        if not self.volumn_check(new_bin):
-            return None
-        new_bin.axis_sort(axises_rotate)
-        lwh_list = [self.next_length_points, self.next_width_points, self.next_height_points]
-        axis_map = utils.axis_utils.lwh_to_axis_map(axises)
-        axis_list = [lwh_list[axis_map[0]], lwh_list[axis_map[1]], lwh_list[axis_map[2]]]
-        axis_list.reverse()
-        axis_len_list = [len(axis_list[0]), len(axis_list[1]), len(axis_list[2])]
-        next_points = []
-        next_points.extend(axis_list[0])
-        next_points.extend(axis_list[1])
-        next_points.extend(axis_list[2]) 
-        if next_points == []:
-            bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
+    def candidates_search(self, 
+                          new_bin:Bin,  
+                          try_rotate:bool=True, 
+                          strict_level:int=3,
+                          brute_start_point:Tuple[int,int,int]=(0,0,0)) -> Tuple[Tuple[int,int,int], SearchMethod]:
+        real_method = SearchMethod.CANDIDATE_POINTS
+        if self.candidate_points == []:
+            bin_location, real_method = self.brute_search(space = self.space, 
+                                                          new_bin = new_bin, 
+                                                          start_point = brute_start_point,
+                                                          strict_level = strict_level)
         else:
             suit_one = False
-            for idx_point,next_position in enumerate(next_points):
+            for idx_point, candidate_point in enumerate(self.candidate_points):
                 suit = False
                 if try_rotate:
                     for idx_axis, axis_type in enumerate(utils.axis_utils.full_axis_type()):
-                        copy_bin = Bin(new_bin.l, new_bin.w, new_bin.h, self.precision)
+                        copy_bin = new_bin.copy()
                         copy_bin.axis_transform(axis_type)
-                        results = self.put(copy_bin, next_position, strict_level)
+                        results = self.put(copy_bin, candidate_point, strict_level)
                         if all(results):
                             if idx_axis != 0:
                                 logger.info(f"Rotate bin to {axis_type}")
-                            bin_location = next_position
+                            new_bin = copy_bin
+                            bin_location = candidate_point
                             suit = True
                             break
                 else:
-                    results = self.put(new_bin, next_position, strict_level)
+                    results = self.put(new_bin, candidate_point, strict_level)
                     if all(results):
-                        bin_location = next_position
+                        bin_location = candidate_point
                         suit = True
                 if suit:
                     suit_one = True
                     break
             if not suit_one:
-                bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
-        if bin_location != None:
-            self.add_next_points(bin_location, new_bin)
-        return bin_location
-
-    def sub_space_find(self, 
-                       new_bin:Bin, 
-                       axises_rotate:Tuple[Axis, Axis, Axis], 
-                       axises:Tuple[Axis, Axis, Axis], 
-                       strict_level:int=3) -> Tuple[int, int, int]:
-        if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
-            if self.search_history[-1][1] == None:
-                return None
-        if not self.volumn_check(new_bin):
-            return None
-        new_bin.axis_sort(axises_rotate)
-        if self.candidates_points == []:
-            self.candidates_points = [(0,0,0)]
-        # sorted_bin = sorted((new_bin.length, new_bin.width, new_bin.height))
-        candidates_match_ratio = []
-        for idx, candidate_start in enumerate(self.candidates_points):
-            # candidate_space = (self.max_length - candidate_start[0],
-            #                    self.max_width - candidate_start[1],
-            #                    self.max_height - candidate_start[2])
-            # sorted_space = sorted(candidate_space)
-            # raw_match = [sorted_space[0] / sorted_bin[0], sorted_space[1] / sorted_bin[1], sorted_space[2] / sorted_bin[2]]
-            # mean_match = sum(raw_match) / len(raw_match)
-            # raw_match = [x - mean_match for x in raw_match]
-            # raw_match = [x / mean_match for x in raw_match]
-            # raw_match = [abs(x) for x in raw_match]
-            candidate_match_ratio = -sum(candidate_start)
-            candidates_match_ratio.append(candidate_match_ratio)
-        candidates = list(zip(list(range(len(self.candidates_points))), 
-                              self.candidates_points, 
-                              candidates_match_ratio))
-        candidates = sorted(candidates, key=lambda x: x[2], reverse=True)
-        for candidate in candidates:
-            pick_idx = candidate[0]
-            pick_candidate_point = candidate[1]
-            # axis_sort = utils.axis_utils.lwh_sort(self.size_list)
-            # new_bin.axis_sort(axis_sort)   
-            results = self.put(new_bin, pick_candidate_point, strict_level)
-            if all(results):
-                self.add_candidates(pick_candidate_point, new_bin)
-                return pick_candidate_point
-            else:
-                continue
-        bin_location = self.brute_find_part(new_bin, axises_rotate, axises, strict_level=strict_level)
+                bin_location, real_method = self.brute_search(space = self.space, 
+                                                              new_bin = new_bin, 
+                                                              start_point = brute_start_point,
+                                                              strict_level = strict_level)
         if bin_location != None:
             self.add_candidates(bin_location, new_bin)
-        return bin_location
+        return bin_location, real_method
+
+    def sub_space_find(self, 
+                       new_bin:Bin,  
+                       strict_level:int=3,
+                       brute_start_point:Tuple[int,int,int]=(0,0,0)) -> Tuple[Tuple[int,int,int], SearchMethod]:
+        pass
 
     def greedy_search(self, 
-                      new_bin:Bin, 
-                      axises_rotate:Tuple[Axis, Axis, Axis], 
-                      axises:Tuple[Axis, Axis, Axis], 
-                      strict_level:int=3) -> Tuple[int, int, int]: 
-        last_end = (0,0,0)
-        if self.search_history != [] and new_bin.size_list == self.search_history[-1][0]:
-            if self.search_history[-1][1] == None:
-                return None
-            else:
-                last_end = self.search_history[-1][1]
-        if not self.volumn_check(new_bin):
-            return None
-        new_bin.axis_sort(axises_rotate)
-        for width_idx in range(self.max_width - new_bin.width + 1):
-            for length_idx in range(self.max_length - new_bin.length + 1):
-                bin_projection = self.simple_space[length_idx:length_idx+new_bin.length, 
-                                                    width_idx:width_idx+new_bin.width]
+                      new_bin:Bin,   
+                      axises:Tuple[Axis, Axis]=(Axis.LENGTH, Axis.WIDTH),
+                      start_point:Tuple[int,int,int]=(0,0),
+                      strict_level:int=3,
+                      brute_start_point:Tuple[int,int,int]=(0,0,0)) -> Tuple[Tuple[int,int,int], SearchMethod]: 
+        assert len(axises) == 2
+        search_axis = utils.axis_utils.lwh_to_axis(self.size_list[:2], axises)
+        axis_start_point = utils.axis_utils.lwh_to_axis(start_point, axises)
+        axis_space = np.transpose(self.simple_space, (utils.axis_utils.lwh_to_axis_map(axises)))
+        bin_axis = utils.axis_utils.lwh_to_axis(new_bin.size_list[:2], axises)
+        
+        for axis_0 in range(0, search_axis[0] - bin_axis[0] + 1):
+            if axis_0 < axis_start_point[0]:
+                continue
+            if np.any(search_axis[1] - np.sum(axis_space[axis_0 : axis_0 + bin_axis[0]], axis=1) < bin_axis[1]):
+                continue
+            for axis_1 in range(0, search_axis[1] - bin_axis[1] + 1):
+                if axis_0 == axis_start_point[0] and axis_1 < axis_start_point[1]:
+                    continue
+                if axis_space[axis_0, axis_1] == 1:
+                    continue
+                bin_projection = axis_space[axis_0 : axis_0 + bin_axis[0], 
+                                            axis_1 : axis_1 + bin_axis[1]]
                 current_height = np.max(bin_projection)
                 if (self.max_height - current_height >= new_bin.height):
-                    result = self.put(new_bin, (length_idx, width_idx, current_height), strict_level)
+                    axis_index_list = [axis_0, axis_1]
+                    idx_length, idx_width, _ = utils.axis_utils.axis_to_lwh(axis_index_list, axises)
+                    result = self.put(new_bin, (idx_length, idx_width, current_height), strict_level)
                     if all(result):
-                        return (length_idx, width_idx, current_height) 
-        bin_location = self.brute_find_part(new_bin, axises_rotate, axises, start_point=last_end, strict_level=strict_level)
-        return bin_location
-        # return None
+                        return (idx_length, idx_width, current_height), SearchMethod.GREEDY
+        bin_location, real_method = self.brute_search(space = self.space, 
+                                                      new_bin = new_bin, 
+                                                      axises = [*axises, Axis.HEIGHT],
+                                                      start_point = brute_start_point, 
+                                                      strict_level = strict_level)
+        return bin_location, real_method
                     

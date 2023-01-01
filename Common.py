@@ -18,9 +18,22 @@ class Axis(Enum):
     def __repr__(self) -> str:
         return self.name
 
+class SearchMethod(Enum):
+    NONE = 0
+    BRUTE = 1
+    GREEDY = 2
+    CANDIDATE_POINTS = 3
+    SUB_SPACE = 4
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return self.name
+
 PRECISION = 0 # =10^x
 
-LOG_FILE_PATH = r"D:\OneDrive\Projects\Coding\Python\Fun\3D_Bin_Packing\run_log_" + \
+LOG_FILE_PATH = r"D:\OneDrive\Projects\Coding\Python\Fun\3D_Bin_Packing\Logs\run_log_" + \
                 time.asctime().replace(" ","_").replace(":","_") + r".log"
 
 def get_logger():
