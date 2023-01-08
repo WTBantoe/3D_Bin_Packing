@@ -1,9 +1,6 @@
-from enum import Enum
-import logging
-import verboselogs
-import sys
+import os
 import random
-import time
+from enum import Enum
 
 random.seed(1)
 
@@ -18,6 +15,14 @@ class Axis(Enum):
     def __repr__(self) -> str:
         return self.name
 
+    class UnknownAxis(Exception):
+        def __init__(self):
+            super().__init__()
+
+    class InvalidAxis(Exception):
+        def __init__(self):
+            super().__init__()
+
 class SearchMethod(Enum):
     NONE = 0
     BRUTE = 1
@@ -31,29 +36,10 @@ class SearchMethod(Enum):
     def __repr__(self) -> str:
         return self.name
 
+    class UnknownSearchMethod(Exception):
+        def __init__(self):
+            super().__init__()
+
 PRECISION = 0 # =10^x
 
-LOG_FILE_PATH = r"D:\OneDrive\Projects\Coding\Python\Fun\3D_Bin_Packing\Logs\run_log_" + \
-                time.asctime().replace(" ","_").replace(":","_") + r".log"
-
-def get_logger():
-    logger = verboselogs.VerboseLogger("3DBP")
-    logger.setLevel(logging.DEBUG)
-
-    streamFormatter = logging.Formatter(fmt="({filename}:{lineno}) {levelname}: {message}",style="{")
-    fileFormatter = logging.Formatter(fmt='[{asctime}] File "{filename}", line {lineno}, in {funcName}\n{levelname}: {message}',style="{")
-
-    streamHandler = logging.StreamHandler(sys.stdout)
-    streamHandler.setLevel(logging.INFO)
-    streamHandler.setFormatter(streamFormatter)
-
-    fileHandler = logging.FileHandler(LOG_FILE_PATH, "w")
-    fileHandler.setLevel(logging.VERBOSE)
-    fileHandler.setFormatter(fileFormatter)
-
-    logger.addHandler(streamHandler)
-    logger.addHandler(fileHandler)
-
-    return logger
-
-logger = get_logger()
+LOG_DIR = os.path.abspath(os.path.join(os.path.split(os.path.realpath(__file__))[0],"./Logs"))

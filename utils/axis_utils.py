@@ -2,7 +2,7 @@ from Common import *
 from typing import Any, List, Tuple
 
 def valid_axis(axises:Tuple[Axis, Axis, Axis]):
-    assert len(axises) == 3
+    assert len(axises) == 3, Axis.InvalidAxis
     valid = False
     if Axis.LENGTH in axises and Axis.WIDTH in axises and Axis.HEIGHT in axises:
         valid = True

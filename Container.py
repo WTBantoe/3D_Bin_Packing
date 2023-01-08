@@ -1,9 +1,13 @@
 from Common import *
-import utils
-
-from typing import Any, List, Tuple
-from Bin import Bin
 import numpy as np
+from typing import Any, List, Tuple
+
+from Bin import Bin
+import utils.axis_utils
+import utils.math_utils
+import utils.log_utils
+
+LOGGER = utils.log_utils.MyLogger().get_logger()
 
 class Container:
     def __init__(self, ml:float, mw:float, mh:float, precision:int=PRECISION):
@@ -267,12 +271,12 @@ class Container:
 
     def search(self, 
                new_bin:Bin, 
-               axises_rotate:Tuple[Axis, Axis, Axis], 
-               method:SearchMethod, 
-               strict_level:int=3, 
+               strict_level:int=3,
+               method:SearchMethod=None, 
+               axises_rotate:Tuple[Axis, Axis, Axis]=[Axis.LENGTH,Axis.WIDTH,Axis.HEIGHT],
                **config):
         copy_bin = new_bin.copy()
-        logger.info(f"Putting bin: {new_bin}, using {method}.")
+        LOGGER.info(f"Putting bin: {new_bin}, using {method}.")
         # 搜索历史检测，若上一个被放入的箱子没有找到，那同类型的也找不到
         last_end = (0, 0, 0)
         last_brute_end = (0, 0, 0)
@@ -322,6 +326,8 @@ class Container:
                                                            start_point=last_end[:2],
                                                            strict_level = strict_level,
                                                            brute_start_point=last_brute_end)
+        else:
+            raise NotImplementedError("Serch method not implemented!")
             
         self.update_history(copy_bin, bin_location, method, real_method)
         return bin_location
@@ -395,7 +401,7 @@ class Container:
                         results = self.put(copy_bin, candidate_point, strict_level)
                         if all(results):
                             if idx_axis != 0:
-                                logger.info(f"Rotate bin to {axis_type}")
+                                LOGGER.info(f"Rotate bin to {axis_type}")
                             new_bin = copy_bin
                             bin_location = candidate_point
                             suit = True

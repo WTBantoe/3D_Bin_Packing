@@ -1,6 +1,8 @@
 from Common import *
-import utils
 from typing import Any, List, Tuple
+
+import utils.axis_utils
+import utils.math_utils
 
 class Bin:
     def __init__(self, l:float, w:float, h:float, precision:int=PRECISION):
