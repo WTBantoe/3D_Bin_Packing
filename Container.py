@@ -140,12 +140,33 @@ class Container:
         else:
             return True
                
-    def put(self, new_bin:Bin, position:Tuple[int,int,int], strict_level:int, just_try:bool=False) -> bool:
+    def put(self, new_bin:Bin, position:Tuple[int,int,int], strict_level:int, fall:bool=False, just_try:bool=False) -> bool:
         within = self.within(new_bin, position)
         if not all(within):
-            return (*within, True, True)
+            return position, (*within, True, True)
         if not self.stable(new_bin, position, strict_level):
-            return (True, True, True, False, True)
+            if not fall:
+                return position, (True, True, True, False, True)
+            else:
+                lower_level = position[2] - 1
+                if lower_level == -1:
+                    pass
+                else:
+                    fall_distance = 0
+                    while True:
+                        lower_level_slice = self.space[:,:,lower_level - fall_distance]
+                        bin_slice = lower_level_slice[position[0]:position[0]+new_bin.length,
+                                                      position[1]:position[1]+new_bin.width]
+                        if np.sum(bin_slice) == 0:
+                            fall_distance += 1
+                        else:
+                            new_position = [position[0], position[1], position[2] - fall_distance]
+                            if self.stable(new_bin, new_position, strict_level, fall, just_try):
+                                position = new_position
+                                break
+                            else:
+                                return position, (True, True, True, False, True)
+                    
         if np.sum(self.space[position[0]:position[0]+new_bin.length,
                              position[1]:position[1]+new_bin.width,
                              position[2]:position[2]+new_bin.height])  == 0:
@@ -158,9 +179,9 @@ class Container:
                 self.envelope_space[:position[0]+new_bin.length,
                                    :position[1]+new_bin.width,
                                    :position[2]+new_bin.height] = 1
-            return (True, True, True, True, True)            
+            return position, (True, True, True, True, True)            
         else:
-            return (True, True, True, True, False)
+            return position, (True, True, True, True, False)
 
     def find_envelope_in_slice(self,asix: Axis, slice_idx:int):
         if asix == Axis.LENGTH:
@@ -329,15 +350,15 @@ class Container:
                        strict_level:int,
                        method:OfflineSearchMethod,
                        axises_rotate:Tuple[Axis, Axis, Axis],
-                       **config) -> List[Tuple[int,int,int]]:
+                       **config) -> Tuple[List[Bin], List[Tuple[int,int,int]]]:
         # for single_bin in new_bins:
         #     single_bin.axis_sort(axises_rotate)
         
         if method == OfflineSearchMethod.CANDIDATE_POINTS:
-            bin_locations = self.candidates_search_offline(new_bins, 
+            real_bins, bin_locations = self.candidates_search_offline(new_bins, 
                                                            strict_level, 
                                                            **config)
-        return bin_locations        
+        return real_bins, bin_locations        
         
     def candidates_search_offline(self, 
                                   new_bins:List[Bin], 
@@ -355,22 +376,22 @@ class Container:
                 self.candidate_points = [(0,0,0)]
             suit_one = False
             for idx_point, candidate_point in enumerate(self.candidate_points):
-                results = self.put(single_bin, candidate_point, strict_level, False)
+                real_position, results = self.put(single_bin, candidate_point, strict_level)
                 if all(results):
                     suit_one = True
-                    bin_locations.append(candidate_point)
-                    self.update_candidates(candidate_point, single_bin, candidate_add_method, candidate_sort_method, axises)
+                    bin_locations.append(real_position)
+                    self.update_candidates(real_position, single_bin, candidate_add_method, candidate_sort_method, axises)
                     break
             if not suit_one:
                 bin_locations.append(None)
-        return bin_locations
+        return new_bins, bin_locations
     
     def online_search(self, 
                       new_bin:Bin, 
                       strict_level:int,
                       method:OnlineSearchMethod, 
                       axises_rotate:Tuple[Axis, Axis, Axis],
-                      **config) -> Tuple[int,int,int]:
+                      **config) -> Tuple[Bin, Tuple[int,int,int]]:
         copy_bin = new_bin.copy()
         LOGGER.info(f"Putting bin: {new_bin}, using {method}.")
         # 搜索历史检测，若上一个被放入的箱子没有找到，那同类型的也找不到
@@ -380,7 +401,7 @@ class Container:
             if self.search_history[-1][1] == None:
                 bin_location = None
                 self.update_history(copy_bin, bin_location, method, OnlineSearchMethod.NONE)
-                return bin_location
+                return new_bin, bin_location
             else:
                 if self.search_history[-1][2] == OnlineSearchMethod.BRUTE:
                     last_brute_end = self.search_history[-1][1]
@@ -393,25 +414,25 @@ class Container:
         if not self.volumn_check(new_bin):
             bin_location = None
             self.update_history(copy_bin, bin_location, method, OnlineSearchMethod.NONE)
-            return bin_location
+            return new_bin, bin_location
         
         new_bin.axis_sort(axises_rotate)
         # 选择搜索方法
         if method == OnlineSearchMethod.BRUTE:
-            bin_location, real_method = self.brute_search(new_bin = new_bin,
+            real_bin, bin_location, real_method = self.brute_search(new_bin = new_bin,
                                                           strict_level = strict_level,
                                                           space = self.space, 
                                                           start_point = last_brute_end, 
                                                           **config)          
         elif method == OnlineSearchMethod.CANDIDATE_POINTS:
-            bin_location, real_method = self.candidates_search(new_bin = new_bin, 
+            real_bin, bin_location, real_method = self.candidates_search(new_bin = new_bin, 
                                                                strict_level = strict_level,
                                                                brute_start_point = last_brute_end,
                                                                **config)
         elif method == OnlineSearchMethod.SUB_SPACE:
             raise NotImplementedError("Serch method not implemented!")
         elif method == OnlineSearchMethod.GREEDY:
-            bin_location, real_method = self.greedy_search(new_bin = new_bin,
+            real_bin, bin_location, real_method = self.greedy_search(new_bin = new_bin,
                                                            strict_level = strict_level,
                                                            brute_start_point = last_brute_end,
                                                            start_point = last_end[:2],
@@ -420,7 +441,7 @@ class Container:
             raise NotImplementedError("Serch method not implemented!")
             
         self.update_history(copy_bin, bin_location, method, real_method)
-        return bin_location
+        return real_bin, bin_location
   
     def brute_search(self, 
                      new_bin:Bin,
@@ -452,7 +473,7 @@ class Container:
                         continue
                     axis_index_list = [axis_0, axis_1, axis_2]
                     idx_length, idx_width, idx_height = utils.axis_utils.axis_to_lwh(axis_index_list, axises)
-                    results = self.put(new_bin, (idx_length, idx_width, idx_height), strict_level)
+                    real_position, results = self.put(new_bin, (idx_length, idx_width, idx_height), strict_level)
                     neg_result = [not result for result in results]
                     skip_axis = utils.axis_utils.lwh_to_axis(neg_result[:3], axises)
                     if any(skip_axis[:3]):
@@ -460,12 +481,12 @@ class Container:
                     elif any(neg_result):
                         continue
                     else:
-                        return (idx_length, idx_width, idx_height), OnlineSearchMethod.BRUTE
+                        return new_bin, real_position, OnlineSearchMethod.BRUTE
                 if any(skip_axis[:2]):
                     break 
             if any(skip_axis[:1]):
                 break
-        return None, OnlineSearchMethod.BRUTE
+        return new_bin, None, OnlineSearchMethod.BRUTE
 
     def candidates_search(self, 
                           new_bin:Bin,  
@@ -477,10 +498,11 @@ class Container:
                           axises:Tuple[Axis, Axis, Axis]) -> Tuple[Tuple[int,int,int], OnlineSearchMethod]:
         real_method = OnlineSearchMethod.CANDIDATE_POINTS
         if self.candidate_points == []:
-            bin_location, real_method = self.brute_search(space = self.space, 
-                                                          new_bin = new_bin, 
-                                                          start_point = brute_start_point,
-                                                          strict_level = strict_level)
+            new_bin, bin_location, real_method = self.brute_search(new_bin = new_bin,
+                                                                    strict_level = strict_level,
+                                                                    space = self.space, 
+                                                                    start_point = brute_start_point,
+                                                                    axises = axises)
         else:
             suit_one = False
             for idx_point, candidate_point in enumerate(self.candidate_points):
@@ -489,30 +511,31 @@ class Container:
                     for idx_axis, axis_type in enumerate(utils.axis_utils.full_axis_type()):
                         copy_bin = new_bin.copy()
                         copy_bin.axis_transform(axis_type)
-                        results = self.put(copy_bin, candidate_point, strict_level)
+                        real_position, results = self.put(copy_bin, candidate_point, strict_level)
                         if all(results):
                             if idx_axis != 0:
                                 LOGGER.info(f"Rotate bin to {axis_type}")
                             new_bin = copy_bin
-                            bin_location = candidate_point
+                            bin_location = real_position
                             suit = True
                             break
                 else:
-                    results = self.put(new_bin, candidate_point, strict_level)
+                    real_position, results = self.put(new_bin, candidate_point, strict_level)
                     if all(results):
-                        bin_location = candidate_point
+                        bin_location = real_position
                         suit = True
                 if suit:
                     suit_one = True
                     break
             if not suit_one:
-                bin_location, real_method = self.brute_search(space = self.space, 
-                                                              new_bin = new_bin, 
-                                                              start_point = brute_start_point,
-                                                              strict_level = strict_level)
+                new_bin, bin_location, real_method = self.brute_search(new_bin = new_bin,
+                                                                       strict_level = strict_level,
+                                                                       space = self.space, 
+                                                                       start_point = brute_start_point,
+                                                                       axises = axises)
         if bin_location != None:
             self.update_candidates(bin_location, new_bin, candidate_add_method, candidate_sort_method, axises)
-        return bin_location, real_method
+        return new_bin, bin_location, real_method
 
     def sub_space_find(self, 
                        new_bin:Bin,  
@@ -548,13 +571,13 @@ class Container:
                 if (self.max_height - current_height >= new_bin.height):
                     axis_index_list = [axis_0, axis_1]
                     idx_length, idx_width, _ = utils.axis_utils.axis_to_lwh(axis_index_list, axises)
-                    result = self.put(new_bin, (idx_length, idx_width, current_height), strict_level)
-                    if all(result):
-                        return (idx_length, idx_width, current_height), OnlineSearchMethod.GREEDY
-        bin_location, real_method = self.brute_search(space = self.space, 
-                                                      new_bin = new_bin, 
-                                                      axises = [*axises, Axis.HEIGHT],
-                                                      start_point = brute_start_point, 
-                                                      strict_level = strict_level)
-        return bin_location, real_method
+                    real_position, results = self.put(new_bin, (idx_length, idx_width, current_height), strict_level)
+                    if all(results):
+                        return new_bin, real_position, OnlineSearchMethod.GREEDY
+        new_bin, bin_location, real_method = self.brute_search(space = self.space, 
+                                                               new_bin = new_bin, 
+                                                               axises = [*axises, Axis.HEIGHT],
+                                                               start_point = brute_start_point, 
+                                                               strict_level = strict_level)
+        return new_bin, bin_location, real_method
                     

@@ -17,7 +17,7 @@ def to_online_method(method):
         return OnlineSearchMethod.BRUTE
     elif method == "greedy":
         return OnlineSearchMethod.GREEDY
-    elif method == "candidate_point":
+    elif method == "candidate_points":
         return OnlineSearchMethod.CANDIDATE_POINTS
     elif method == "sub_space":
         return OnlineSearchMethod.SUB_SPACE
@@ -25,7 +25,7 @@ def to_online_method(method):
         raise OnlineSearchMethod.UnknownSearchMethod
 
 def to_offline_method(method):
-    if method == "candidate_point":
+    if method == "candidate_points":
         return OfflineSearchMethod.CANDIDATE_POINTS
     else:
         raise OfflineSearchMethod.UnknownSearchMethod
@@ -69,7 +69,7 @@ def get_args():
     task_parser = argparse.ArgumentParser()
     task_parser.add_argument("--bin_types", type=int, required=True, choices=[3,5,8,10,15])
     task_parser.add_argument("--test_index", type=int, required=False, default=0, choices=[0,1,2,3,4,5])
-    task_parser.add_argument("--strict_level", type=int, required=False ,default=3, choices=[0,1,2,3])  
+    task_parser.add_argument("--strict_level", type=int, required=False ,default=2, choices=[0,1,2,3])  
     task_args, remain_args = task_parser.parse_known_args()
 
     type_parser = argparse.ArgumentParser()
