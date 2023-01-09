@@ -7,8 +7,7 @@ from Bin import Bin
 from Container import Container
 import utils.log_utils
 
-LOGGER = utils.log_utils.MyLogger().get_logger()
-
+LOGGER = utils.log_utils.SingleLogger().get_logger()
 
 def generate_bins(bin_num:int, container:Container) -> List[Bin]:
     bin_list = []
@@ -54,7 +53,7 @@ def read_task(read_path:str, bin_types:int, pick_num:int=None, precision:int=PRE
                 l, w, h, n = str_bin.split("(")[1].split(")")[0].split(" ")
                 l, w, h, n = int(l), int(w), int(h), int(n)
                 for i in range(n):
-                    new_bin = Bin(l, h, w, precision)
+                    new_bin = Bin(l, w, h, precision)
                     bin_list.append(new_bin)
             bins_list.append(bin_list)
             types_list.append(bin_type)

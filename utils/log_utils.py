@@ -15,7 +15,7 @@ def singleton(cls):
     return _singleton
 
 @singleton
-class MyLogger():
+class SingleLogger():
     
     log_file_path = None
     logger = None    
