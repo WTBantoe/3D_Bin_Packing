@@ -698,37 +698,37 @@ Container类还是算法的实现类，其算法将在下面详细介绍
 python main.py --bin_types 3 --test_index 1 --strict_level 1 --type online --method brute --axises h l w
 ```
 
-![](.\Pics\3_1_online_BRUTE_2023_01_11_13_57_55.gif)
+![](Pics/3_1_online_BRUTE_2023_01_11_13_57_55.gif)
 
 ```bash
 python main.py --bin_types 3 --test_index 1 --strict_level 1 --type online --method greedy --axises l w
 ```
 
-![](.\Pics\3_1_online_GREEDY_2023_01_11_14_23_50.gif)
+![](Pics/3_1_online_GREEDY_2023_01_11_14_23_50.gif)
 
 ```bash
 python main.py --bin_types 3 --test_index 1 --strict_level 1 --type online --method candidate_points --candidate_add_method envelope --candidate_sort_method axis --axises w l h --try_rotate
 ```
 
-![](.\Pics\3_1_online_CANDIDATE_POINTS_2023_01_11_14_29_10.gif)
+![](Pics/3_1_online_CANDIDATE_POINTS_2023_01_11_14_29_10.gif)
 
 ```bash
 python main.py --bin_types 15 --test_index 1 --strict_level 1 --type online --method brute --axises h l w
 ```
 
-![](.\Pics\15_1_online_BRUTE_2023_01_11_14_36_28.gif)
+![](Pics/15_1_online_BRUTE_2023_01_11_14_36_28.gif)
 
 ```bash
 python main.py --bin_types 15 --test_index 1 --strict_level 1 --type online --method greedy --axises l w
 ```
 
-![](.\Pics\15_1_online_GREEDY_2023_01_11_14_46_40.gif)
+![](Pics/15_1_online_GREEDY_2023_01_11_14_46_40.gif)
 
 ```bash
 python main.py --bin_types 15 --test_index 1 --strict_level 1 --type online --method candidate_points --candidate_add_method envelope --candidate_sort_method axis --axises w l h --try_rotate
 ```
 
-![](.\Pics\15_1_online_CANDIDATE_POINTS_2023_01_11_14_33_42.gif)
+![](Pics/15_1_online_CANDIDATE_POINTS_2023_01_11_14_33_42.gif)
 
 # 十、总结
 
