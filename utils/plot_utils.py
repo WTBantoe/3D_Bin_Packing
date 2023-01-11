@@ -4,6 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from typing import List, Tuple
+import os
+
+from Common import *
+import utils.log_utils
+
+LOGGER = utils.log_utils.SingleLogger().get_logger()
 
 def make_data(position, size=(1,1,1)):
     X = [[[0, 1, 0], [0, 0, 0], [1, 0, 0], [1, 1, 0]],
@@ -30,7 +36,8 @@ def make_3D(positions, sizes=None, colors=None, **kwargs):
                             **kwargs)
     
 
-def draw(container_size:Tuple[int,int,int],
+def draw(save_path:str,
+         container_size:Tuple[int,int,int],
          positions:List[Tuple[int,int,int]], 
          sizes:List[Tuple[int,int,int]], 
          colors:List[str]=None):
@@ -52,11 +59,13 @@ def draw(container_size:Tuple[int,int,int],
     ax.set_ylim([0,container_size[1]])
     ax.set_zlim([0,container_size[2]])
 
+    fig.savefig(save_path)
+    LOGGER.info(f"File saved to {save_path}")
+
     plt.show()
 
-
-
-def anime(container_size:Tuple[int,int,int],
+def anime(save_path:str,
+          container_size:Tuple[int,int,int],
           positions:List[Tuple[int,int,int]], 
           sizes:List[Tuple[int,int,int]], 
           colors:List[str]=None):
@@ -73,7 +82,7 @@ def anime(container_size:Tuple[int,int,int],
 
     def update(i):
         ax.clear()
-        ax.set_facecolor(plt.cm.Blues(.2))
+        # ax.set_facecolor(plt.cm.Blues(.2)) # 设置背景颜色
 
         plot_data = make_3D(positions[:i+1], sizes[:i+1], colors[:i+1])
         ax.add_collection3d(plot_data)
@@ -88,6 +97,9 @@ def anime(container_size:Tuple[int,int,int],
     anime = FuncAnimation(fig = fig,    
                           func = update,    
                           frames = len(positions),    
-                          interval = 50)
+                          interval = 100)
+
+    anime.save(save_path)
+    LOGGER.info(f"File saved to {save_path}")
 
     plt.show()

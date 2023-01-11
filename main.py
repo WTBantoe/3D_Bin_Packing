@@ -54,5 +54,7 @@ LOGGER.info(f"Space utilization: {container.space_utilization}")
 LOGGER.info(f"Theory space utilization: {theory_utilization}")
 LOGGER.info(f"Score: {score}")
 
-# utils.plot_utils.draw(container.size_list, positions, sizes)
-utils.plot_utils.anime(container.size_list, positions, sizes)
+# utils.plot_utils.draw(os.path.join(PROJECT_ROOT,"Pics",utils.log_utils.SingleLogger().get_repr()+".gif"),
+#                       container.size_list, positions, sizes)
+utils.plot_utils.anime(os.path.join(PROJECT_ROOT,"Pics",utils.log_utils.SingleLogger().get_repr()+".gif"),
+                       container.size_list, positions, sizes)

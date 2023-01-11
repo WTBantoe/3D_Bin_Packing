@@ -16,13 +16,20 @@ def singleton(cls):
 
 @singleton
 class SingleLogger():
-    
+
+    run_repr = None
     log_file_path = None
-    logger = None    
+    logger = None   
+
+    def get_repr(self, task_args=None, type_args=None, method_args=None):
+        if self.run_repr is None:
+            time_str = time.strftime('%Y_%m_%d_%H_%M_%S',time.localtime())
+            repr = f"{task_args.bin_types}_{task_args.test_index}_{type_args.type}_{method_args.method}_{time_str}"
+            self.run_repr = repr
+        return self.run_repr
 
     def get_log_path(self, LOG_DIR, task_args, type_args, method_args, config_args):
-        time_str = time.strftime('%Y_%m_%d_%H_%M_%S',time.localtime())
-        file_name = f"{task_args.bin_types}_{task_args.test_index}_{type_args.type}_{method_args.method}_{time_str}.log"
+        file_name = self.get_repr(task_args, type_args, method_args) + ".log"
         self.log_file_path = os.path.join(LOG_DIR,file_name) 
 
     def get_logger(self):

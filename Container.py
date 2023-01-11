@@ -558,7 +558,7 @@ class Container:
         for axis_0 in range(0, search_axis[0] - bin_axis[0] + 1):
             if axis_0 < axis_start_point[0]:
                 continue
-            if np.any(search_axis[1] - np.sum(axis_space[axis_0 : axis_0 + bin_axis[0]], axis=1) < bin_axis[1]):
+            if np.any(search_axis[1] * self.max_height - np.sum(axis_space[axis_0 : axis_0 + bin_axis[0]], axis=1) < bin_axis[1] * new_bin.height):
                 continue
             for axis_1 in range(0, search_axis[1] - bin_axis[1] + 1):
                 if axis_0 == axis_start_point[0] and axis_1 < axis_start_point[1]:
